@@ -1,0 +1,27 @@
+{
+  "name": "miniplay",
+  "version": "1.0.0",
+  "description": "MiniPlay - Simple Multiplayer Mini-Game Web Platform",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js",
+    "tunnel": "npx localtunnel --port 3000",
+    "test": "node test/test_platform.js && node test/test_all_games.js"
+  },
+  "keywords": [
+    "multiplayer",
+    "minigames",
+    "socket.io",
+    "html5-games"
+  ],
+  "author": "MiniPlay Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
+  }
+}

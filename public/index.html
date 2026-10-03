@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MiniPlay — Tiny Games. Big Fun. Play Together.</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <!-- Global App Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand" id="brand-logo" role="button" tabindex="0">
+        <span class="brand-icon">🎮</span>
+        <span class="brand-text">Mini<span class="brand-accent">Play</span></span>
+      </div>
+
+      <div class="header-actions">
+        <button id="btn-sound-toggle" class="btn-icon" title="Toggle Sound SFX" aria-label="Toggle Sound">
+          <span id="sound-icon">🔊</span>
+        </button>
+        <button id="btn-header-join" class="btn-subtle">
+          <span>Join Game</span>
+        </button>
+        <button id="btn-header-create" class="btn-primary">
+          <span>+ Create Game</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="main-content">
+    
+    <!-- 1. HOMEPAGE VIEW -->
+    <section id="view-home" class="view active">
+      <div class="hero-section">
+        <div class="hero-badge">⚡ Instant Multiplayer • No Login Needed</div>
+        <h1 class="hero-title">Tiny Games. Big Fun.<br><span class="gradient-text">Play Together.</span></h1>
+        <p class="hero-subtitle">Open a game, share a quick 5-letter code or link with a friend, and start playing in seconds!</p>
+        
+        <div class="hero-cta-group">
+          <button id="hero-create-btn" class="btn-cta-primary">
+            <span class="btn-icon-prefix">🚀</span> Create Game
+          </button>
+          <button id="hero-join-btn" class="btn-cta-secondary">
+            <span class="btn-icon-prefix">🔑</span> Join Game
+          </button>
+        </div>
+
+        <!-- Quick Code Join Strip -->
+        <div class="quick-join-bar">
+          <label for="quick-room-input" class="sr-only">Enter Room Code</label>
+          <input type="text" id="quick-room-input" placeholder="Enter 5-letter Room Code (e.g. X7K2P)" maxlength="5" autocomplete="off" spellcheck="false">
+          <button id="quick-join-btn" class="btn-accent">Join Room</button>
+        </div>
+      </div>
+
+      <!-- Quick Play Strip -->
+      <section class="quick-play-section">
+        <div class="section-header">
+          <h2 class="section-title">⚡ Quick Play Modes</h2>
+          <span class="section-hint">Jump directly into a 2-player classic</span>
+        </div>
+        <div class="quick-play-pills" id="quick-play-pills">
+          <!-- Injected via JS -->
+        </div>
+      </section>
+
+      <!-- Category Filter Tabs -->
+      <section class="games-library-section">
+        <div class="section-header">
+          <h2 class="section-title">🕹️ Featured Games</h2>
+          <div class="category-tabs" id="category-tabs" role="tablist">
+            <button class="cat-pill active" data-category="all">All</button>
+            <button class="cat-pill" data-category="2-players">2 Players</button>
+            <button class="cat-pill" data-category="3-4-players">3–4 Players</button>
+            <button class="cat-pill" data-category="single-player">Solo</button>
+            <button class="cat-pill" data-category="board">Board</button>
+            <button class="cat-pill" data-category="action">Action</button>
+            <button class="cat-pill" data-category="puzzle">Puzzle</button>
+            <button class="cat-pill" data-category="cards">Cards</button>
+            <button class="cat-pill" data-category="casual">Casual</button>
+          </div>
+        </div>
+
+        <!-- Games Grid -->
+        <div class="games-grid" id="games-grid">
+          <!-- Dynamically populated -->
+        </div>
+      </section>
+    </section>
+
+
+    <!-- 2. LOBBY VIEW -->
+    <section id="view-lobby" class="view">
+      <div class="lobby-card">
+        <div class="lobby-header">
+          <div class="lobby-game-badge">
+            <span id="lobby-game-icon" class="badge-icon">🎮</span>
+            <span id="lobby-game-name">Game Name</span>
+          </div>
+          <span id="lobby-status-badge" class="status-badge waiting">Waiting for players...</span>
+        </div>
+
+        <div class="lobby-code-box">
+          <div class="code-title">ROOM CODE</div>
+          <div class="code-digits" id="lobby-room-code">-----</div>
+          <div class="code-actions">
+            <button id="btn-copy-code" class="btn-lobby-action">
+              <span>📋 Copy Code</span>
+            </button>
+            <button id="btn-copy-link" class="btn-lobby-action highlight">
+              <span>🔗 Copy Game Link</span>
+            </button>
+          </div>
+          <div class="code-hint">Send this code or link to your friend to join this room instantly!</div>
+        </div>
+
+        <!-- Players Slot List -->
+        <div class="lobby-players-section">
+          <h3>Players (<span id="lobby-player-count">0</span>/<span id="lobby-max-players">2</span>)</h3>
+          <div class="lobby-players-list" id="lobby-players-list">
+            <!-- Player slots populated here -->
+          </div>
+        </div>
+
+        <!-- Lobby Controls -->
+        <div class="lobby-controls">
+          <button id="btn-start-game" class="btn-cta-primary" disabled>
+            🚀 START GAME
+          </button>
+          <button id="btn-leave-lobby" class="btn-subtle">
+            Leave Room
+          </button>
+        </div>
+
+        <!-- Rules preview -->
+        <div class="lobby-rules-box" id="lobby-rules-box">
+          <h4>📖 How to Play</h4>
+          <ul id="lobby-rules-list"></ul>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- 3. ACTIVE GAMEPLAY VIEW -->
+    <section id="view-game" class="view">
+      <!-- Universal In-Game Header -->
+      <div class="game-top-bar">
+        <div class="game-info">
+          <span id="active-game-icon" class="game-icon">🎮</span>
+          <div>
+            <h2 id="active-game-title">Tic Tac Toe</h2>
+            <div class="game-meta-pills">
+              <span class="pill-room" id="game-room-badge">Room: -----</span>
+              <span class="pill-players" id="game-players-badge">Players: 2/2</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="game-actions">
+          <button id="btn-game-invite" class="btn-pill" title="Copy Invite Link">
+            <span>🔗 Invite</span>
+          </button>
+          <button id="btn-game-rules" class="btn-pill" title="How to Play">
+            <span>❓ Rules</span>
+          </button>
+          <button id="btn-game-leave" class="btn-pill danger" title="Leave Game">
+            <span>🚪 Leave</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Turn & Event Banner -->
+      <div class="turn-banner" id="game-turn-banner">
+        <span id="turn-banner-text">Loading game...</span>
+      </div>
+
+      <!-- Main Game Canvas / Stage -->
+      <div class="game-stage-wrapper">
+        <div id="game-stage-container" class="game-stage-container">
+          <!-- Active Game UI / Canvas Injected Here -->
+        </div>
+      </div>
+
+      <!-- Live Connection Status Footer -->
+      <footer class="game-footer">
+        <div class="connection-status" id="connection-status">
+          <span class="conn-dot connected"></span>
+          <span class="conn-text">Connected</span>
+        </div>
+        <div class="player-identity" id="player-identity">
+          Playing as: <strong id="my-player-name">Guest</strong>
+        </div>
+      </footer>
+    </section>
+
+  </main>
+
+
+  <!-- MODALS -->
+
+  <!-- 1. Create Room Modal -->
+  <dialog id="modal-create-room" class="modal-dialog">
+    <div class="modal-card">
+      <button class="modal-close" id="modal-create-close" aria-label="Close">&times;</button>
+      <h2 class="modal-title">Create Game Room</h2>
+      <p class="modal-desc">Pick your game and settings to generate a room code.</p>
+
+      <form id="form-create-room">
+        <div class="form-group">
+          <label for="create-game-select">Choose Game</label>
+          <select id="create-game-select" required>
+            <!-- Injected via JS -->
+          </select>
+        </div>
+
+        <div class="form-group" id="player-count-group">
+          <label>Max Players</label>
+          <div class="player-radios" id="create-player-radios">
+            <!-- Dynamically populated based on game -->
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="create-player-name">Your Nickname</label>
+          <input type="text" id="create-player-name" placeholder="Enter your name (e.g. StarLord)" maxlength="16" value="Player 1">
+        </div>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn-cta-primary w-100">CREATE ROOM</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+
+  <!-- 2. Join Room Modal -->
+  <dialog id="modal-join-room" class="modal-dialog">
+    <div class="modal-card">
+      <button class="modal-close" id="modal-join-close" aria-label="Close">&times;</button>
+      <h2 class="modal-title">Join Game Room</h2>
+      <p class="modal-desc">Enter the 5-character room code to join your friend.</p>
+
+      <form id="form-join-room">
+        <div class="form-group">
+          <label for="join-room-code">Room Code</label>
+          <input type="text" id="join-room-code" placeholder="e.g. X7K2P" maxlength="5" required autocomplete="off" spellcheck="false" class="input-code">
+        </div>
+
+        <div class="form-group">
+          <label for="join-player-name">Your Nickname</label>
+          <input type="text" id="join-player-name" placeholder="Enter your name" maxlength="16" value="Player 2">
+        </div>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn-cta-primary w-100">JOIN ROOM</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+
+  <!-- 3. How To Play Modal -->
+  <dialog id="modal-how-to-play" class="modal-dialog">
+    <div class="modal-card">
+      <button class="modal-close" id="modal-rules-close" aria-label="Close">&times;</button>
+      <h2 class="modal-title" id="rules-modal-title">📖 Rules & Controls</h2>
+      <div class="rules-modal-content" id="rules-modal-content">
+        <!-- Injected -->
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary w-100" id="btn-rules-got-it">Got It!</button>
+      </div>
+    </div>
+  </dialog>
+
+
+  <!-- 4. Game Over Modal -->
+  <dialog id="modal-game-over" class="modal-dialog">
+    <div class="modal-card text-center">
+      <div class="game-over-icon" id="game-over-icon">🏆</div>
+      <h2 class="modal-title" id="game-over-title">Victory!</h2>
+      <p class="modal-desc" id="game-over-message">Player 1 took the round!</p>
+
+      <div class="game-over-scoreboard" id="game-over-scoreboard">
+        <!-- Injected score summary -->
+      </div>
+
+      <div class="modal-actions-stacked">
+        <button id="btn-play-again" class="btn-cta-primary w-100">🔄 Play Again</button>
+        <button id="btn-back-lobby" class="btn-subtle w-100">Back to Lobby</button>
+      </div>
+    </div>
+  </dialog>
+
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+  <!-- Audio SFX and Main App Script -->
+  <script src="/app.js"></script>
+</body>
+</html>
