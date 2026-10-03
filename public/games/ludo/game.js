@@ -20,18 +20,18 @@ window.MiniPlayGames['ludo'] = {
       <div style="display:flex; flex-direction:column; align-items:center; gap:1.25rem;">
         <div id="ludo-players-banner" style="display:flex; gap:1rem; flex-wrap:wrap; justify-content:center;"></div>
         
-        <!-- Simplified Ludo Board Arena -->
-        <div id="ludo-arena" style="width:360px; height:360px; background:#0f172a; border:4px solid #334155; border-radius:16px; position:relative; overflow:hidden; box-shadow:var(--shadow-lg);">
+        <!-- Responsive Ludo Board Arena -->
+        <div id="ludo-arena" class="ludo-arena">
           <!-- 4 Home Bases -->
-          <div id="ludo-base-0" style="position:absolute; top:12px; left:12px; width:130px; height:130px; background:rgba(239,68,68,0.25); border:3px solid #ef4444; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:8px;"></div>
-          <div id="ludo-base-1" style="position:absolute; top:12px; right:12px; width:130px; height:130px; background:rgba(16,185,129,0.25); border:3px solid #10b981; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:8px;"></div>
-          <div id="ludo-base-2" style="position:absolute; bottom:12px; right:12px; width:130px; height:130px; background:rgba(245,158,11,0.25); border:3px solid #f59e0b; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:8px;"></div>
-          <div id="ludo-base-3" style="position:absolute; bottom:12px; left:12px; width:130px; height:130px; background:rgba(59,130,246,0.25); border:3px solid #3b82f6; border-radius:12px; display:flex; align-items:center; justify-content:center; gap:8px;"></div>
+          <div id="ludo-base-0" class="ludo-base ludo-base-red"></div>
+          <div id="ludo-base-1" class="ludo-base ludo-base-green"></div>
+          <div id="ludo-base-2" class="ludo-base ludo-base-yellow"></div>
+          <div id="ludo-base-3" class="ludo-base ludo-base-blue"></div>
           
           <!-- Central Victory Triangle -->
-          <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:76px; height:76px; background:#1e293b; border:2px solid #64748b; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:1.5rem;">
+          <div class="ludo-home-center">
             🏆
-            <span style="font-size:0.65rem; color:#94a3b8; font-weight:700;">HOME</span>
+            <span>HOME</span>
           </div>
 
           <!-- Active Track Display -->
