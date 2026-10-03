@@ -1,5 +1,7 @@
 # MiniPlay — Tiny Games. Big Fun. Play Together. 🎮
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Salaihariprasanna/miniplay)
+
 MiniPlay is a beautiful, lightweight, web-based multiplayer mini-game platform built with **Vanilla HTML, CSS, JavaScript, Node.js, Express.js, and Socket.IO**.
 
 No installation. No accounts. No login. No database.  
