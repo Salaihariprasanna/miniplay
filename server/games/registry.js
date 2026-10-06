@@ -233,6 +233,26 @@ const GAMES = {
       'Block: S key (reduces incoming damage).',
       'Deplete the opponent\'s health bar to score a KO!'
     ]
+  },
+
+  'ludo': {
+    id: 'ludo',
+    name: 'Ludo',
+    icon: '🎲👑',
+    tagline: 'Classic 2–4 player royal board. Roll 6, hop tokens, capture, and reach home!',
+    description: 'The world-famous royal board game! Roll the 3D dice, advance your 4 tokens around the authentic 15x15 board, capture opponent tokens, and race all tokens into the home triangle!',
+    categories: ['all', '2-players', '3-4-players', 'board', 'casual'],
+    minPlayers: 2,
+    maxPlayers: 4,
+    defaultPlayers: 4,
+    clientScript: '/games/ludo/game.js',
+    howToPlay: [
+      'Take turns rolling the 3D dice.',
+      'Roll a 6 to bring a token out of your yard onto your start tile, and get a bonus roll!',
+      'Move your tokens clockwise around the authentic 52-tile track.',
+      'Landing on an opponent sends their token back to their yard (except on safe Star ⭐ tiles)!',
+      'Navigate your colored home runway and get all 4 tokens into the center home triangle to win!'
+    ]
   }
 };
 

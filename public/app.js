@@ -556,8 +556,8 @@ class MiniPlayApp {
     const container = document.getElementById('quick-play-pills');
     if (!container) return;
 
-    // Pick top quick-play 2-player titles
-    const quickIds = ['tic-tac-toe', 'connect-four', 'rock-paper-scissors', 'tank-battle', 'chess', 'carrom'];
+    // Pick top quick-play titles
+    const quickIds = ['ludo', 'snake-ladder', 'tic-tac-toe', 'connect-four', 'rock-paper-scissors', 'tank-battle', 'chess', 'carrom'];
     const quickGames = this.gamesList.filter(g => quickIds.includes(g.id));
 
     container.innerHTML = quickGames.map(g => `
