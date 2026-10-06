@@ -181,10 +181,31 @@
         <span id="turn-banner-text">Loading game...</span>
       </div>
 
+      <!-- Dynamic Players In-Game HUD -->
+      <div class="game-players-hud" id="game-players-hud">
+        <!-- Live player cards with turn indicators, avatars, scores, and reaction anchors -->
+      </div>
+
       <!-- Main Game Canvas / Stage -->
       <div class="game-stage-wrapper">
         <div id="game-stage-container" class="game-stage-container">
           <!-- Active Game UI / Canvas Injected Here -->
+        </div>
+
+        <!-- Floating Reactions Container -->
+        <div id="floating-reactions-container" class="floating-reactions-container"></div>
+      </div>
+
+      <!-- In-Game Floating Emoji Reaction Strip -->
+      <div class="game-reaction-bar" id="game-reaction-bar">
+        <span class="reaction-label">React:</span>
+        <div class="reaction-buttons">
+          <button class="btn-reaction" data-emoji="🔥" title="Fire">🔥</button>
+          <button class="btn-reaction" data-emoji="😂" title="Laugh">😂</button>
+          <button class="btn-reaction" data-emoji="👏" title="Applause">👏</button>
+          <button class="btn-reaction" data-emoji="😮" title="Shock">😮</button>
+          <button class="btn-reaction" data-emoji="💀" title="Dead">💀</button>
+          <button class="btn-reaction" data-emoji="🎉" title="Party">🎉</button>
         </div>
       </div>
 
@@ -232,6 +253,13 @@
           <input type="text" id="create-player-name" placeholder="Enter your name (e.g. StarLord)" maxlength="16" value="Player 1">
         </div>
 
+        <div class="form-group">
+          <label>Choose Your Avatar</label>
+          <div class="avatar-picker" id="create-avatar-picker">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+
         <div class="modal-actions">
           <button type="submit" class="btn-cta-primary w-100">CREATE ROOM</button>
         </div>
@@ -256,6 +284,13 @@
         <div class="form-group">
           <label for="join-player-name">Your Nickname</label>
           <input type="text" id="join-player-name" placeholder="Enter your name" maxlength="16" value="Player 2">
+        </div>
+
+        <div class="form-group">
+          <label>Choose Your Avatar</label>
+          <div class="avatar-picker" id="join-avatar-picker">
+            <!-- Injected via JS -->
+          </div>
         </div>
 
         <div class="modal-actions">
@@ -302,6 +337,9 @@
 
   <!-- Toast Notification -->
   <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+
+  <!-- Full-Screen Confetti Celebration Canvas -->
+  <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
 
   <!-- Audio SFX and Main App Script -->
   <script src="/app.js"></script>

@@ -1,5 +1,5 @@
 /**
- * Memory Cards Client Module
+ * Memory Cards Client Module — 3D Flip & Sparkle Edition
  */
 window.MiniPlayGames = window.MiniPlayGames || {};
 
@@ -57,9 +57,9 @@ window.MiniPlayGames['memory'] = {
     const rack = this.container.querySelector('#memory-scores-rack');
     if (rack) {
       rack.innerHTML = this.roomInfo.players.map((p, idx) => `
-        <div class="score-badge" style="background:rgba(15,23,42,0.6); padding:0.4rem 0.8rem; border-radius:10px; border:1px solid ${state.currentTurn === idx ? 'var(--primary)' : 'var(--border)'}">
-          <span class="score-name" style="${state.currentTurn === idx ? 'color:#38bdf8; font-weight:700;' : ''}">${p.name} ${state.currentTurn === idx ? '🎲' : ''}</span>
-          <span class="score-val" style="font-size:1.25rem;">${state.scores[idx] || 0} pts</span>
+        <div class="score-badge" style="background:rgba(15,23,42,0.7); padding:0.4rem 0.9rem; border-radius:12px; border:2px solid ${state.currentTurn === idx ? 'var(--primary)' : 'var(--border)'}">
+          <span class="score-name" style="${state.currentTurn === idx ? 'color:#38bdf8; font-weight:700;' : ''}">${p.avatar || '👤'} ${p.name} ${state.currentTurn === idx ? '🎲' : ''}</span>
+          <span class="score-val" style="font-size:1.3rem;">${state.scores[idx] || 0} pts</span>
         </div>
       `).join('');
     }
@@ -98,14 +98,19 @@ window.MiniPlayGames['memory'] = {
     events.forEach(evt => {
       if (evt.type === 'pair_matched') {
         this.app.playSfx('match');
+        this.app.triggerConfetti(40);
+        this.app.toast('✨ Pair Matched!');
       } else if (evt.type === 'mismatch') {
-        // Automatically request server to flip back after a brief reveal delay
         setTimeout(() => {
           this.socket.emit('player_action', { type: 'resolve_mismatch' });
-        }, 1200);
+        }, 1100);
       } else if (evt.type === 'game_over') {
-        if (evt.winner === this.myPlayerIndex) this.app.playSfx('win');
-        else this.app.playSfx('lose');
+        if (evt.winner === this.myPlayerIndex) {
+          this.app.playSfx('win');
+          this.app.triggerConfetti(100);
+        } else {
+          this.app.playSfx('lose');
+        }
       }
     });
   },

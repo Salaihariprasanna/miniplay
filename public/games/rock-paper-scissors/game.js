@@ -1,5 +1,5 @@
 /**
- * Rock Paper Scissors Client Module
+ * Rock Paper Scissors Client Module — Clash Animation Edition
  */
 window.MiniPlayGames = window.MiniPlayGames || {};
 
@@ -17,7 +17,7 @@ window.MiniPlayGames['rock-paper-scissors'] = {
   render() {
     this.container.innerHTML = `
       <div class="rps-container">
-        <!-- Versus Arena -->
+        <!-- Versus Duel Arena -->
         <div class="rps-arena-duel">
           <div class="rps-duel-side" id="rps-p0-side">
             <div class="rps-duel-hand" id="rps-hand-0">❓</div>
@@ -51,7 +51,7 @@ window.MiniPlayGames['rock-paper-scissors'] = {
         </div>
 
         <!-- Next Round Button -->
-        <button id="btn-rps-next" class="btn-primary" style="display: none;">
+        <button id="btn-rps-next" class="btn-primary" style="display: none; padding: 0.75rem 2rem; font-size:1.1rem; font-weight:800;">
           Next Round ➡️
         </button>
       </div>
@@ -92,16 +92,18 @@ window.MiniPlayGames['rock-paper-scissors'] = {
     this.gameState = state;
 
     const ICONS = { rock: '✊', paper: '✋', scissors: '✌️' };
-    const p0Name = this.roomInfo.players[0]?.name || 'Player 1';
-    const p1Name = this.roomInfo.players[1]?.name || 'Player 2';
+    const p0 = this.roomInfo.players[0];
+    const p1 = this.roomInfo.players[1];
+    const p0Name = p0?.name || 'Player 1';
+    const p1Name = p1?.name || 'Player 2';
 
     const p0NameEl = this.container.querySelector('#rps-p0-name');
     const p1NameEl = this.container.querySelector('#rps-p1-name');
     const p0ScoreEl = this.container.querySelector('#rps-p0-score');
     const p1ScoreEl = this.container.querySelector('#rps-p1-score');
 
-    if (p0NameEl) p0NameEl.textContent = p0Name;
-    if (p1NameEl) p1NameEl.textContent = p1Name;
+    if (p0NameEl) p0NameEl.textContent = `${p0?.avatar || '👤'} ${p0Name}`;
+    if (p1NameEl) p1NameEl.textContent = `${p1?.avatar || '👤'} ${p1Name}`;
     if (p0ScoreEl) p0ScoreEl.textContent = `Score: ${state.scores[0]}`;
     if (p1ScoreEl) p1ScoreEl.textContent = `Score: ${state.scores[1]}`;
 
@@ -118,9 +120,16 @@ window.MiniPlayGames['rock-paper-scissors'] = {
     });
 
     if (state.revealed) {
-      // Both revealed
+      // Both revealed with clash animation
       hand0.textContent = ICONS[state.choices[0]];
       hand1.textContent = ICONS[state.choices[1]];
+      hand0.style.transform = 'scale(1.3)';
+      hand1.style.transform = 'scale(1.3)';
+      setTimeout(() => {
+        hand0.style.transform = '';
+        hand1.style.transform = '';
+      }, 300);
+
       nextBtn.style.display = 'inline-flex';
 
       if (state.roundWinner === 'draw') {
@@ -138,15 +147,20 @@ window.MiniPlayGames['rock-paper-scissors'] = {
 
       // Secret indicator
       const hasPicked = state.hasPicked || [false, false];
-      hand0.textContent = hasPicked[0] ? '🔒 Ready' : '⏳ Thinking';
-      hand1.textContent = hasPicked[1] ? '🔒 Ready' : '⏳ Thinking';
+      hand0.textContent = hasPicked[0] ? '🔒 Locked' : '⏳ Choosing...';
+      hand1.textContent = hasPicked[1] ? '🔒 Locked' : '⏳ Choosing...';
     }
 
     events.forEach(evt => {
       if (evt.type === 'round_revealed') {
-        if (evt.winner === this.myPlayerIndex) this.app.playSfx('win');
-        else if (evt.winner === 'draw') this.app.playSfx('move');
-        else this.app.playSfx('lose');
+        if (evt.winner === this.myPlayerIndex) {
+          this.app.playSfx('win');
+          this.app.triggerConfetti(60);
+        } else if (evt.winner === 'draw') {
+          this.app.playSfx('move');
+        } else {
+          this.app.playSfx('lose');
+        }
       }
     });
   },

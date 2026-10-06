@@ -64,11 +64,12 @@ io.on('connection', (socket) => {
   // 1. Create Room
   socket.on('create_room', (data, callback) => {
     try {
-      const { gameId, maxPlayers, playerName, playerToken } = data;
+      const { gameId, maxPlayers, playerName, avatar, playerToken } = data;
       const result = roomManager.createRoom({
         gameId,
         maxPlayers,
         playerName,
+        avatar,
         socket,
         socketId: socket.id,
         playerToken
@@ -83,10 +84,11 @@ io.on('connection', (socket) => {
   // 2. Join Room
   socket.on('join_room', (data, callback) => {
     try {
-      const { roomCode, playerName, playerToken } = data;
+      const { roomCode, playerName, avatar, playerToken } = data;
       const result = roomManager.joinRoom({
         roomCode,
         playerName,
+        avatar,
         socket,
         socketId: socket.id,
         playerToken

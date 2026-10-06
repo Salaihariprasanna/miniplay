@@ -1,5 +1,5 @@
 /**
- * Connect Four Client Module
+ * Connect Four Client Module — Enhanced Physics Edition
  */
 window.MiniPlayGames = window.MiniPlayGames || {};
 
@@ -35,9 +35,49 @@ window.MiniPlayGames['connect-four'] = {
       this.handleDrop(col);
     });
 
+    // Column hover ghost indicators
+    const cols = this.container.querySelectorAll('.c4-col');
+    cols.forEach(colEl => {
+      colEl.addEventListener('mouseenter', () => {
+        if (!this.gameState || this.gameState.currentTurn !== this.myPlayerIndex) return;
+        const col = parseInt(colEl.dataset.col, 10);
+        this.highlightDropPreview(col);
+      });
+      colEl.addEventListener('mouseleave', () => {
+        this.clearDropPreview();
+      });
+    });
+
     if (this.roomInfo.gameState) {
       this.onStateUpdate(this.roomInfo.gameState, []);
     }
+  },
+
+  highlightDropPreview(col) {
+    this.clearDropPreview();
+    if (!this.gameState) return;
+
+    for (let r = 5; r >= 0; r--) {
+      if (this.gameState.board[r][col] === null) {
+        const cell = this.container.querySelector(`.c4-cell[data-row="${r}"][data-col="${col}"]`);
+        if (cell) {
+          cell.style.boxShadow = `0 0 14px ${this.myPlayerIndex === 0 ? '#ef4444' : '#eab308'}`;
+          cell.style.background = this.myPlayerIndex === 0 ? 'rgba(239, 68, 68, 0.35)' : 'rgba(234, 179, 8, 0.35)';
+        }
+        break;
+      }
+    }
+  },
+
+  clearDropPreview() {
+    this.container.querySelectorAll('.c4-cell').forEach(c => {
+      const row = parseInt(c.dataset.row, 10);
+      const col = parseInt(c.dataset.col, 10);
+      if (this.gameState && this.gameState.board[row][col] === null) {
+        c.style.boxShadow = '';
+        c.style.background = '';
+      }
+    });
   },
 
   handleDrop(col) {
@@ -65,6 +105,8 @@ window.MiniPlayGames['connect-four'] = {
 
         const val = state.board[r][c];
         cell.className = 'c4-cell' + (val !== null ? ` p${val}` : '');
+        cell.style.boxShadow = '';
+        cell.style.background = '';
 
         if (state.winningCells) {
           const isWin = state.winningCells.some(([wr, wc]) => wr === r && wc === c);
@@ -78,8 +120,12 @@ window.MiniPlayGames['connect-four'] = {
         this.app.playSfx('move');
       } else if (evt.type === 'game_over') {
         if (evt.result === 'win') {
-          if (evt.winner === this.myPlayerIndex) this.app.playSfx('win');
-          else this.app.playSfx('lose');
+          if (evt.winner === this.myPlayerIndex) {
+            this.app.playSfx('win');
+            this.app.triggerConfetti(100);
+          } else {
+            this.app.playSfx('lose');
+          }
         } else {
           this.app.playSfx('click');
         }

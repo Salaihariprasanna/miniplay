@@ -85,9 +85,6 @@ function handleAction(gameState, playerIndex, action) {
       gameState.movableTokens = [];
       gameState.currentTurn = (gameState.currentTurn + 1) % gameState.playerCount;
       events.push({ type: 'turn_passed', nextTurn: gameState.currentTurn });
-    } else if (movable.length === 1) {
-      // Auto-move single token for faster fluid gameplay
-      return handleAction(gameState, playerIndex, { type: 'move_token', tokenId: movable[0] });
     }
 
     return { valid: true, stateChanged: true, events };

@@ -26,7 +26,9 @@ class MiniPlayApp {
     this.playerToken = token;
 
     this.initAudio();
+    this.initConfetti();
     this.initElements();
+    this.initAvatarPickers();
     this.initSocket();
     this.initEventHandlers();
     this.loadGames();
@@ -78,6 +80,67 @@ class MiniPlayApp {
       gain.connect(ctx.destination);
       osc.start(now);
       osc.stop(now + 0.08);
+    } else if (type === 'hop') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(420, now);
+      osc.frequency.exponentialRampToValueAtTime(680, now + 0.06);
+      gain.gain.setValueAtTime(0.16, now);
+      gain.gain.linearRampToValueAtTime(0, now + 0.06);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.06);
+    } else if (type === 'fanfare') {
+      const notes = [392, 523.25, 659.25, 783.99]; // G C E G
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+        gain.gain.setValueAtTime(0.16, now + idx * 0.08);
+        gain.gain.linearRampToValueAtTime(0, now + idx * 0.08 + 0.18);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.08);
+        osc.stop(now + idx * 0.08 + 0.18);
+      });
+    } else if (type === 'hiss') {
+      try {
+        const bufferSize = Math.floor(ctx.sampleRate * 0.22);
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(3200, now);
+        filter.frequency.exponentialRampToValueAtTime(1000, now + 0.22);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.22);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+        noise.start(now);
+        noise.stop(now + 0.22);
+      } catch (e) {}
+    } else if (type === 'pop') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.07);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.linearRampToValueAtTime(0, now + 0.07);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.07);
     } else if (type === 'win') {
       const notes = [523.25, 659.25, 783.99, 1046.50]; // C E G C
       notes.forEach((freq, idx) => {
@@ -107,17 +170,17 @@ class MiniPlayApp {
         osc.stop(now + idx * 0.12 + 0.2);
       });
     } else if (type === 'dice') {
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 6; i++) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'square';
-        osc.frequency.setValueAtTime(150 + Math.random() * 200, now + i * 0.04);
+        osc.frequency.setValueAtTime(160 + Math.random() * 220, now + i * 0.04);
         gain.gain.setValueAtTime(0.1, now + i * 0.04);
-        gain.gain.linearRampToValueAtTime(0, now + i * 0.04 + 0.03);
+        gain.gain.linearRampToValueAtTime(0, now + i * 0.04 + 0.035);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(now + i * 0.04);
-        osc.stop(now + i * 0.04 + 0.03);
+        osc.stop(now + i * 0.04 + 0.035);
       }
     } else if (type === 'shoot') {
       const osc = ctx.createOscillator();
@@ -259,6 +322,10 @@ class MiniPlayApp {
       this.toast(`${name} disconnected.`);
     });
 
+    this.socket.on('player_reaction', (data) => {
+      this.showFloatingReaction(data.playerIndex, data.emoji, data.avatar);
+    });
+
     this.socket.on('game_started', (room) => {
       this.currentRoom = room;
       this.launchGame();
@@ -270,6 +337,7 @@ class MiniPlayApp {
         this.currentRoom.status = status;
       }
       this.updateTurnBanner();
+      this.renderGamePlayersHud();
       if (this.activeGameModule && this.activeGameModule.onStateUpdate) {
         this.activeGameModule.onStateUpdate(gameState, []);
       }
@@ -316,6 +384,16 @@ class MiniPlayApp {
       this.toast(this.soundEnabled ? 'Sound enabled 🔊' : 'Sound muted 🔇');
     });
 
+    // Floating Emoji Reaction Buttons
+    document.querySelectorAll('.btn-reaction').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const emoji = btn.dataset.emoji;
+        if (!emoji || !this.socket) return;
+        this.playSfx('click');
+        this.socket.emit('player_action', { type: 'reaction', emoji });
+      });
+    });
+
     // Hero & Header Buttons
     document.getElementById('btn-header-create').addEventListener('click', () => this.openCreateModal());
     document.getElementById('hero-create-btn').addEventListener('click', () => this.openCreateModal());
@@ -357,9 +435,10 @@ class MiniPlayApp {
       const playerName = document.getElementById('create-player-name').value.trim() || 'Player 1';
       const selectedRadio = document.querySelector('.player-radio-pill.selected');
       const maxPlayers = selectedRadio ? parseInt(selectedRadio.dataset.players, 10) : 2;
+      const avatar = this.selectedAvatar || localStorage.getItem('miniplay_player_avatar') || '🦊';
 
       localStorage.setItem('miniplay_player_name', playerName);
-      this.createRoom({ gameId, maxPlayers, playerName });
+      this.createRoom({ gameId, maxPlayers, playerName, avatar });
       this.modals.create.close();
     });
 
@@ -368,6 +447,7 @@ class MiniPlayApp {
       e.preventDefault();
       const code = document.getElementById('join-room-code').value.trim();
       const playerName = document.getElementById('join-player-name').value.trim() || 'Player 2';
+      const avatar = this.selectedAvatar || localStorage.getItem('miniplay_player_avatar') || '🦊';
 
       if (!code) {
         this.toast('Enter a room code');
@@ -375,7 +455,7 @@ class MiniPlayApp {
       }
 
       localStorage.setItem('miniplay_player_name', playerName);
-      this.joinRoom(code, playerName);
+      this.joinRoom(code, playerName, avatar);
       this.modals.join.close();
     });
 
@@ -641,11 +721,13 @@ class MiniPlayApp {
   // =========================================================================
   // Room Lifecycle (Create, Join, Leave)
   // =========================================================================
-  createRoom({ gameId, maxPlayers, playerName }) {
+  createRoom({ gameId, maxPlayers, playerName, avatar }) {
+    const av = avatar || this.selectedAvatar || localStorage.getItem('miniplay_player_avatar') || '🦊';
     this.socket.emit('create_room', {
       gameId,
       maxPlayers,
       playerName,
+      avatar: av,
       playerToken: this.playerToken
     }, (res) => {
       if (res && res.success) {
@@ -664,11 +746,13 @@ class MiniPlayApp {
     });
   }
 
-  joinRoom(roomCode, playerName) {
+  joinRoom(roomCode, playerName, avatar) {
     const name = playerName || localStorage.getItem('miniplay_player_name') || 'Player 2';
+    const av = avatar || this.selectedAvatar || localStorage.getItem('miniplay_player_avatar') || '🦊';
     this.socket.emit('join_room', {
       roomCode,
       playerName: name,
+      avatar: av,
       playerToken: this.playerToken
     }, (res) => {
       if (res && res.success) {
@@ -747,7 +831,7 @@ class MiniPlayApp {
         slotsHtml += `
           <div class="player-slot occupied">
             <div class="slot-info">
-              <div class="slot-avatar">👤</div>
+              <div class="slot-avatar">${p.avatar || '🦊'}</div>
               <div class="slot-name">
                 ${p.name}
                 ${p.index === this.myPlayerIndex ? '<span style="color:#38bdf8;">(You)</span>' : ''}
@@ -783,6 +867,7 @@ class MiniPlayApp {
     this.switchView('game');
     this.updateGameHeader();
     this.updateTurnBanner();
+    this.renderGamePlayersHud();
 
     const gameId = this.currentRoom.gameId;
 
@@ -866,6 +951,183 @@ class MiniPlayApp {
     } else {
       textEl.textContent = '⚔️ Battle in progress!';
     }
+    this.renderGamePlayersHud();
+  }
+
+  // =========================================================================
+  // Dynamic Player Details, Reactions, and Confetti Systems
+  // =========================================================================
+  initAvatarPickers() {
+    const AVATARS = ['🦊', '🦁', '🤖', '🚀', '👑', '🦄', '🐼', '⚡', '🐉', '🎯', '👾', '🐱'];
+    this.selectedAvatar = localStorage.getItem('miniplay_player_avatar') || '🦊';
+
+    ['create', 'join'].forEach(type => {
+      const picker = document.getElementById(`${type}-avatar-picker`);
+      if (!picker) return;
+      picker.innerHTML = AVATARS.map(av => `
+        <button type="button" class="avatar-btn ${av === this.selectedAvatar ? 'selected' : ''}" data-avatar="${av}">
+          ${av}
+        </button>
+      `).join('');
+
+      picker.addEventListener('click', (e) => {
+        const btn = e.target.closest('.avatar-btn');
+        if (!btn) return;
+        this.selectedAvatar = btn.dataset.avatar;
+        localStorage.setItem('miniplay_player_avatar', this.selectedAvatar);
+        this.playSfx('click');
+
+        document.querySelectorAll('.avatar-btn').forEach(b => {
+          b.classList.toggle('selected', b.dataset.avatar === this.selectedAvatar);
+        });
+      });
+    });
+  }
+
+  renderGamePlayersHud() {
+    const hud = document.getElementById('game-players-hud');
+    if (!hud || !this.currentRoom) return;
+
+    const r = this.currentRoom;
+    const state = r.gameState || {};
+    const currTurn = state.currentTurn;
+
+    hud.innerHTML = r.players.map((p, idx) => {
+      const isTurn = currTurn === idx;
+      const isMe = idx === this.myPlayerIndex;
+      let scoreInfo = '';
+
+      if (state.scores && state.scores[idx] !== undefined) {
+        scoreInfo = `<span class="hud-score-tag">Score: ${state.scores[idx]}</span>`;
+      } else if (state.players && state.players[idx]?.tokensHome !== undefined) {
+        scoreInfo = `<span class="hud-score-tag">🏆 ${state.players[idx].tokensHome}/2 Home</span>`;
+      } else if (state.positions && state.positions[idx] !== undefined) {
+        scoreInfo = `<span class="hud-score-tag">📍 Tile ${state.positions[idx]}</span>`;
+      }
+
+      return `
+        <div class="player-hud-card ${isTurn ? 'active-turn' : ''}" data-player-idx="${idx}" id="hud-card-${idx}">
+          <div class="hud-avatar">
+            ${p.avatar || '🦊'}
+            ${p.isHost ? '<span class="hud-crown">👑</span>' : ''}
+          </div>
+          <div class="hud-info">
+            <span class="hud-name">${p.name} ${isMe ? '<span style="color:#38bdf8; font-size:0.75rem;">(You)</span>' : ''}</span>
+            <div>
+              <span class="hud-status-dot" style="background:${p.connected ? '#10b981' : '#64748b'};"></span>
+              ${scoreInfo}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  showFloatingReaction(playerIndex, emoji, avatar) {
+    const container = document.getElementById('floating-reactions-container');
+    if (!container) return;
+
+    this.playSfx('pop');
+
+    const bubble = document.createElement('div');
+    bubble.className = 'floating-reaction-item';
+    bubble.textContent = emoji;
+
+    const hudCard = document.getElementById(`hud-card-${playerIndex}`);
+    let startX = 50 + (Math.random() - 0.5) * 30;
+    if (hudCard) {
+      const rect = hudCard.getBoundingClientRect();
+      const contRect = container.getBoundingClientRect();
+      if (contRect.width > 0) {
+        startX = ((rect.left + rect.width / 2 - contRect.left) / contRect.width) * 100;
+      }
+    }
+    startX = Math.max(8, Math.min(92, startX));
+    bubble.style.left = `${startX}%`;
+    bubble.style.bottom = '20px';
+
+    container.appendChild(bubble);
+    setTimeout(() => {
+      if (bubble.parentNode) bubble.parentNode.removeChild(bubble);
+    }, 2400);
+  }
+
+  initConfetti() {
+    this.confettiCanvas = document.getElementById('confetti-canvas');
+    if (!this.confettiCanvas) return;
+    this.confettiCtx = this.confettiCanvas.getContext('2d');
+    this.confettiParticles = [];
+    this.confettiRunning = false;
+
+    const resize = () => {
+      if (this.confettiCanvas) {
+        this.confettiCanvas.width = window.innerWidth;
+        this.confettiCanvas.height = window.innerHeight;
+      }
+    };
+    window.addEventListener('resize', resize);
+    resize();
+  }
+
+  triggerConfetti(count = 100) {
+    if (!this.confettiCanvas || !this.confettiCtx) return;
+    const colors = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#38bdf8', '#eab308'];
+    const w = this.confettiCanvas.width;
+
+    for (let i = 0; i < count; i++) {
+      this.confettiParticles.push({
+        x: Math.random() * w,
+        y: -10 - Math.random() * 40,
+        w: 6 + Math.random() * 8,
+        h: 10 + Math.random() * 12,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        vx: (Math.random() - 0.5) * 6,
+        vy: 3 + Math.random() * 5,
+        rot: Math.random() * 360,
+        rotSpeed: (Math.random() - 0.5) * 10,
+        opacity: 1
+      });
+    }
+
+    if (!this.confettiRunning) {
+      this.confettiRunning = true;
+      const animate = () => {
+        if (!this.confettiRunning) return;
+        this.confettiCtx.clearRect(0, 0, this.confettiCanvas.width, this.confettiCanvas.height);
+
+        for (let i = this.confettiParticles.length - 1; i >= 0; i--) {
+          const p = this.confettiParticles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.rot += p.rotSpeed;
+          p.vy += 0.08;
+          if (p.y > this.confettiCanvas.height - 50) {
+            p.opacity -= 0.025;
+          }
+
+          if (p.opacity <= 0 || p.y > this.confettiCanvas.height + 30) {
+            this.confettiParticles.splice(i, 1);
+            continue;
+          }
+
+          this.confettiCtx.save();
+          this.confettiCtx.translate(p.x, p.y);
+          this.confettiCtx.rotate((p.rot * Math.PI) / 180);
+          this.confettiCtx.fillStyle = p.color;
+          this.confettiCtx.globalAlpha = Math.max(0, p.opacity);
+          this.confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          this.confettiCtx.restore();
+        }
+
+        if (this.confettiParticles.length > 0) {
+          requestAnimationFrame(animate);
+        } else {
+          this.confettiRunning = false;
+          this.confettiCtx.clearRect(0, 0, this.confettiCanvas.width, this.confettiCanvas.height);
+        }
+      };
+      requestAnimationFrame(animate);
+    }
   }
 
   handleGameOver(evt) {
@@ -889,11 +1151,13 @@ class MiniPlayApp {
         title.textContent = 'Victory!';
         msg.textContent = 'Congratulations! You won the match!';
         this.playSfx('win');
+        this.triggerConfetti(120);
       } else {
         icon.textContent = '💥';
         title.textContent = 'Defeat!';
         msg.textContent = `${winnerName} takes the victory!`;
         this.playSfx('lose');
+        this.triggerConfetti(60);
       }
     }
 

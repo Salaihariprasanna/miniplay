@@ -1,5 +1,5 @@
 /**
- * Chess Client Module
+ * Chess Client Module — Smooth Glide & King Check Edition
  */
 window.MiniPlayGames = window.MiniPlayGames || {};
 
@@ -13,6 +13,7 @@ window.MiniPlayGames['chess'] = {
 
     this.selectedSquare = null;
     this.validMoves = [];
+    this.lastMove = null;
 
     this.PIECE_SYMBOLS = {
       'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙', // White
@@ -60,8 +61,8 @@ window.MiniPlayGames['chess'] = {
     if (this.selectedSquare) {
       const isTarget = this.validMoves.some(m => m.r === r && m.c === c);
       if (isTarget) {
-        // Move!
         this.app.playSfx('move');
+        this.lastMove = { fromR: this.selectedSquare.r, fromC: this.selectedSquare.c, toR: r, toC: c };
         this.socket.emit('player_action', {
           type: 'move',
           fromR: this.selectedSquare.r,
@@ -105,6 +106,7 @@ window.MiniPlayGames['chess'] = {
     const cells = this.container.querySelectorAll('.board-cell');
     cells.forEach(cell => {
       cell.classList.remove('selected', 'valid-dest');
+      cell.style.outline = '';
       const r = parseInt(cell.dataset.r, 10);
       const c = parseInt(cell.dataset.c, 10);
 
@@ -113,6 +115,11 @@ window.MiniPlayGames['chess'] = {
       }
       if (this.validMoves.some(m => m.r === r && m.c === c)) {
         cell.classList.add('valid-dest');
+      }
+      if (this.lastMove) {
+        if ((this.lastMove.fromR === r && this.lastMove.fromC === c) || (this.lastMove.toR === r && this.lastMove.toC === c)) {
+          cell.style.outline = '2px solid rgba(245, 158, 11, 0.7)';
+        }
       }
     });
   },
@@ -135,11 +142,19 @@ window.MiniPlayGames['chess'] = {
     events.forEach(evt => {
       if (evt.type === 'piece_moved') {
         this.app.playSfx('move');
+        this.lastMove = { fromR: evt.fromR, fromC: evt.fromC, toR: evt.toR, toC: evt.toC };
+        this.updateHighlights();
       } else if (evt.type === 'piece_captured') {
         this.app.playSfx('hit');
+      } else if (evt.type === 'check') {
+        this.app.toast('⚠️ CHECK!');
       } else if (evt.type === 'game_over') {
-        if (evt.winner === this.myPlayerIndex) this.app.playSfx('win');
-        else this.app.playSfx('lose');
+        if (evt.winner === this.myPlayerIndex) {
+          this.app.playSfx('win');
+          this.app.triggerConfetti(120);
+        } else {
+          this.app.playSfx('lose');
+        }
       }
     });
   },

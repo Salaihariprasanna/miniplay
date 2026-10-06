@@ -174,43 +174,58 @@ window.MiniPlayGames['carrom'] = {
     ctx.strokeStyle = '#ffffff';
     ctx.stroke();
 
-    // Aim Line
-    if (this.isDragging) {
-      const dx = this.dragStart.x - this.dragCurrent.x;
-      const dy = this.dragStart.y - this.dragCurrent.y;
-      ctx.beginPath();
-      ctx.moveTo(this.strikerX, H - 80);
-      ctx.lineTo(this.strikerX + dx * 1.5, (H - 80) + dy * 1.5);
-      ctx.strokeStyle = '#f43f5e';
-      ctx.lineWidth = 3;
-      ctx.setLineDash([6, 4]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-  },
+      // Aim Line & Power Meter
+      if (this.isDragging) {
+        const dx = this.dragStart.x - this.dragCurrent.x;
+        const dy = this.dragStart.y - this.dragCurrent.y;
+        const powerRatio = Math.min(1, Math.hypot(dx, dy) / 120);
+        const aimColor = powerRatio < 0.4 ? '#10b981' : (powerRatio < 0.75 ? '#f59e0b' : '#ef4444');
 
-  onStateUpdate(state, events = []) {
-    this.gameState = state;
+        ctx.beginPath();
+        ctx.moveTo(this.strikerX, H - 80);
+        ctx.lineTo(this.strikerX + dx * 1.6, (H - 80) + dy * 1.6);
+        ctx.strokeStyle = aimColor;
+        ctx.lineWidth = 3.5;
+        ctx.setLineDash([6, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
 
-    const sc0 = this.container.querySelector('#carrom-sc-0');
-    const sc1 = this.container.querySelector('#carrom-sc-1');
-    if (sc0) sc0.textContent = state.scores[0];
-    if (sc1) sc1.textContent = state.scores[1];
-
-    this.draw();
-
-    events.forEach(evt => {
-      if (evt.type === 'shot_executed') {
-        this.app.playSfx('hit');
-        if (evt.pocketed && evt.pocketed.length > 0) {
-          this.app.playSfx('match');
-        }
-      } else if (evt.type === 'game_over') {
-        if (evt.winner === this.myPlayerIndex) this.app.playSfx('win');
-        else this.app.playSfx('lose');
+        // Power arc around striker
+        ctx.beginPath();
+        ctx.arc(this.strikerX, H - 80, 26, -Math.PI / 2, -Math.PI / 2 + powerRatio * Math.PI * 2);
+        ctx.strokeStyle = aimColor;
+        ctx.lineWidth = 4;
+        ctx.stroke();
       }
-    });
-  },
+    },
+
+    onStateUpdate(state, events = []) {
+      this.gameState = state;
+
+      const sc0 = this.container.querySelector('#carrom-sc-0');
+      const sc1 = this.container.querySelector('#carrom-sc-1');
+      if (sc0) sc0.textContent = state.scores[0];
+      if (sc1) sc1.textContent = state.scores[1];
+
+      this.draw();
+
+      events.forEach(evt => {
+        if (evt.type === 'shot_executed') {
+          this.app.playSfx('hit');
+          if (evt.pocketed && evt.pocketed.length > 0) {
+            this.app.playSfx('match');
+            this.app.toast('🎯 Coin pocketed!');
+          }
+        } else if (evt.type === 'game_over') {
+          if (evt.winner === this.myPlayerIndex) {
+            this.app.playSfx('win');
+            this.app.triggerConfetti?.(100);
+          } else {
+            this.app.playSfx('lose');
+          }
+        }
+      });
+    },
 
   onDestroy() {
     this.container.innerHTML = '';

@@ -1,5 +1,5 @@
 /**
- * Checkers Client Module
+ * Checkers Client Module — Crowning & Jump Animation Edition
  */
 window.MiniPlayGames = window.MiniPlayGames || {};
 
@@ -121,6 +121,7 @@ window.MiniPlayGames['checkers'] = {
           disc.className = `checker-disc ${piece.player === 0 ? 'red' : 'black'}`;
           if (piece.isKing) {
             disc.textContent = '👑';
+            disc.style.boxShadow = '0 0 14px #fbbf24';
           }
           cell.appendChild(disc);
         }
@@ -134,9 +135,16 @@ window.MiniPlayGames['checkers'] = {
         this.app.playSfx('move');
       } else if (evt.type === 'piece_captured') {
         this.app.playSfx('hit');
+      } else if (evt.type === 'kinged') {
+        this.app.toast('👑 Crowned King!');
+        this.app.playSfx('fanfare');
       } else if (evt.type === 'game_over') {
-        if (evt.winner === this.myPlayerIndex) this.app.playSfx('win');
-        else this.app.playSfx('lose');
+        if (evt.winner === this.myPlayerIndex) {
+          this.app.playSfx('win');
+          this.app.triggerConfetti(110);
+        } else {
+          this.app.playSfx('lose');
+        }
       }
     });
   },

@@ -1,5 +1,5 @@
 /**
- * Dots and Boxes Client Module
+ * Dots and Boxes Client Module — Pop-In Zoom & Avatar Edition
  */
 window.MiniPlayGames = window.MiniPlayGames || {};
 
@@ -83,9 +83,9 @@ window.MiniPlayGames['dots-and-boxes'] = {
     const rack = this.container.querySelector('#dnb-scores-rack');
     if (rack) {
       rack.innerHTML = this.roomInfo.players.map((p, idx) => `
-        <div class="score-badge" style="background:rgba(15,23,42,0.6); padding:0.4rem 0.8rem; border-radius:10px; border:1px solid ${state.currentTurn === idx ? 'var(--primary)' : 'var(--border)'}">
-          <span class="score-name" style="${state.currentTurn === idx ? 'color:#38bdf8; font-weight:700;' : ''}">${p.name} ${state.currentTurn === idx ? '✏️' : ''}</span>
-          <span class="score-val" style="font-size:1.25rem; color:${this.playerColors[idx]}">${state.scores[idx] || 0} boxes</span>
+        <div class="score-badge" style="background:rgba(15,23,42,0.7); padding:0.4rem 0.9rem; border-radius:12px; border:2px solid ${state.currentTurn === idx ? 'var(--primary)' : 'var(--border)'}">
+          <span class="score-name" style="${state.currentTurn === idx ? 'color:#38bdf8; font-weight:700;' : ''}">${p.avatar || '👤'} ${p.name} ${state.currentTurn === idx ? '✏️' : ''}</span>
+          <span class="score-val" style="font-size:1.3rem; color:${this.playerColors[idx]}">${state.scores[idx] || 0} boxes</span>
         </div>
       `).join('');
     }
@@ -98,6 +98,7 @@ window.MiniPlayGames['dots-and-boxes'] = {
           if (el) {
             el.classList.add('active');
             el.style.background = this.playerColors[owner];
+            el.style.boxShadow = `0 0 10px ${this.playerColors[owner]}`;
           }
         }
       });
@@ -111,6 +112,7 @@ window.MiniPlayGames['dots-and-boxes'] = {
           if (el) {
             el.classList.add('active');
             el.style.background = this.playerColors[owner];
+            el.style.boxShadow = `0 0 10px ${this.playerColors[owner]}`;
           }
         }
       });
@@ -122,10 +124,13 @@ window.MiniPlayGames['dots-and-boxes'] = {
         if (owner !== null) {
           const box = this.container.querySelector(`#dnb-box-${r}-${c}`);
           if (box && !box.textContent) {
-            box.textContent = this.roomInfo.players[owner]?.name?.[0]?.toUpperCase() || `P${owner + 1}`;
+            box.textContent = this.roomInfo.players[owner]?.avatar || this.roomInfo.players[owner]?.name?.[0]?.toUpperCase() || `P${owner + 1}`;
             box.style.background = `${this.playerColors[owner]}33`;
             box.style.color = this.playerColors[owner];
             box.style.border = `2px solid ${this.playerColors[owner]}`;
+            box.style.transform = 'scale(1.15)';
+            box.style.transition = 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            setTimeout(() => { box.style.transform = 'scale(1)'; }, 300);
           }
         }
       });
@@ -136,9 +141,14 @@ window.MiniPlayGames['dots-and-boxes'] = {
         this.app.playSfx('move');
       } else if (evt.type === 'boxes_captured') {
         this.app.playSfx('match');
+        this.app.toast('📦 Box Captured! Extra turn!');
       } else if (evt.type === 'game_over') {
-        if (evt.winner === this.myPlayerIndex) this.app.playSfx('win');
-        else this.app.playSfx('lose');
+        if (evt.winner === this.myPlayerIndex) {
+          this.app.playSfx('win');
+          this.app.triggerConfetti(100);
+        } else {
+          this.app.playSfx('lose');
+        }
       }
     });
   },

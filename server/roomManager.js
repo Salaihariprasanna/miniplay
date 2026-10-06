@@ -55,7 +55,7 @@ class RoomManager {
     return code;
   }
 
-  createRoom({ gameId, maxPlayers, playerName, socket, socketId, playerToken }) {
+  createRoom({ gameId, maxPlayers, playerName, avatar, socket, socketId, playerToken }) {
     const sId = socket?.id || socketId;
     const gameMeta = GAMES[gameId];
     if (!gameMeta) {
@@ -90,6 +90,7 @@ class RoomManager {
       socketId: sId,
       token: playerToken,
       name: playerName || 'Player 1',
+      avatar: avatar || '🦊',
       index: 0,
       isHost: true,
       connected: true,
@@ -112,7 +113,7 @@ class RoomManager {
     };
   }
 
-  joinRoom({ roomCode, playerName, socket, socketId, playerToken }) {
+  joinRoom({ roomCode, playerName, avatar, socket, socketId, playerToken }) {
     const sId = socket?.id || socketId;
     const code = (roomCode || '').trim().toUpperCase();
     const room = this.rooms.get(code);
@@ -127,6 +128,8 @@ class RoomManager {
       socket.join(code);
     }
 
+    const DEFAULT_AVATARS = ['🦊', '🦁', '🤖', '🚀', '👑', '🐼', '⚡', '🐉'];
+
     // 1. Check for Reconnection
     if (playerToken) {
       const existingPlayer = room.players.find(p => p.token === playerToken);
@@ -137,6 +140,7 @@ class RoomManager {
         existingPlayer.socketId = sId;
         existingPlayer.connected = true;
         if (playerName) existingPlayer.name = playerName;
+        if (avatar) existingPlayer.avatar = avatar;
 
         this.socketToRoom.set(sId, code);
 
@@ -164,6 +168,7 @@ class RoomManager {
       socketId: sId,
       token: playerToken,
       name: playerName || `Player ${newIndex + 1}`,
+      avatar: avatar || DEFAULT_AVATARS[newIndex % DEFAULT_AVATARS.length],
       index: newIndex,
       isHost: false,
       connected: true,
@@ -244,6 +249,17 @@ class RoomManager {
     room.lastActive = Date.now();
 
     // Check Lobby / Room-level actions
+    if (action.type === 'reaction') {
+      const emoji = action.emoji || '👍';
+      this.io.to(roomCode).emit('player_reaction', {
+        playerIndex: player.index,
+        playerName: player.name,
+        avatar: player.avatar || '🦊',
+        emoji
+      });
+      return { success: true };
+    }
+
     if (action.type === 'start_game') {
       if (!player.isHost) {
         return { success: false, error: 'Only the host can start the game' };
@@ -349,6 +365,7 @@ class RoomManager {
       players: room.players.map(p => ({
         index: p.index,
         name: p.name,
+        avatar: p.avatar || '🦊',
         isHost: p.isHost,
         connected: p.connected
       })),
