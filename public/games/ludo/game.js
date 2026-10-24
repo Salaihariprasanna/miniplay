@@ -1,14 +1,8 @@
 /**
- * Ludo Client Module — Super Animations Edition
- * Features:
- * - Authentic 15x15 classic Ludo board with yards, safe stars, home stretches, and center trophy
- * - Interactive 3D tumbling dice cube with physical pips and audio clatter
- * - Smooth step-by-step token hopping with arc bounce animations and marimba hop sounds
- * - Pulsing neon invitation glow for movable tokens
- * - Comic impact capture burst & rewind to yard
- * - Home reach fanfare and confetti bursts
+ * Ludo Client Module — Real Canvas Character Animation Edition (Zero SVG)
+ * Authentic 15x15 Indian/English Board with 4 Tokens per Player
+ * Real animated character pawns (Warrior, Ranger, Monarch, Sorcerer)
  */
-
 window.MiniPlayGames = window.MiniPlayGames || {};
 
 window.MiniPlayGames['ludo'] = {
@@ -19,12 +13,20 @@ window.MiniPlayGames['ludo'] = {
     this.myPlayerIndex = myPlayerIndex;
     this.app = app;
 
-    this.playerColors = ['#ef4444', '#10b981', '#eab308', '#3b82f6'];
+    this.playerColors = ['#ef4444', '#10b981', '#f59e0b', '#3b82f6'];
+    this.playerDarkColors = ['#b91c1c', '#047857', '#b45309', '#1d4ed8'];
     this.playerNames = ['Red', 'Green', 'Yellow', 'Blue'];
-    this.isRolling = false;
-    this.isAnimatingMove = false;
+    this.characterRoles = ['Knight', 'Ranger', 'Monarch', 'Sorcerer'];
 
-    // Define 52 common path track coordinates on 15x15 grid: (col, row) 0..14
+    this.isRolling = false;
+    this.animatingToken = null; // { pIdx, tIdx, fromCoord, toCoord, progress, onDone }
+    this.particles = [];
+    this.floatingTexts = [];
+    this.diceAngle = 0;
+    this.diceRolling = false;
+    this.diceDisplayValue = 1;
+
+    // 52 Common Path Track Coordinates on 15x15 grid: [col, row] (0..14)
     this.TRACK_COORDS = [
       [1, 6], [2, 6], [3, 6], [4, 6], [5, 6],
       [6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0],
@@ -41,28 +43,23 @@ window.MiniPlayGames['ludo'] = {
       [0, 6]
     ];
 
-    // Safe squares indices on 52 track: 0, 8, 13, 21, 26, 34, 39, 47
     this.SAFE_TRACK_INDICES = [0, 8, 13, 21, 26, 34, 39, 47];
     this.START_TRACK_INDICES = [0, 13, 26, 39];
 
-    // Home stretch coordinates (steps 51..56 for each player)
+    // Home stretch coords: steps 51..56 for each player
     this.HOME_STRETCHES = [
-      // Player 0 (Red): moves right along row 7
-      [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],
-      // Player 1 (Green): moves down along col 7
-      [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],
-      // Player 2 (Yellow): moves left along row 7
-      [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]],
-      // Player 3 (Blue): moves up along col 7
-      [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]]
+      [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],    // Red (right)
+      [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],    // Green (down)
+      [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]], // Yellow (left)
+      [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]]  // Blue (up)
     ];
 
-    // Base sockets coordinates in yards (col, row): 2 sockets per player
+    // Yard sockets for 4 tokens per player
     this.BASE_SOCKET_COORDS = [
-      [[2, 2], [3, 3]],       // Red (top-left)
-      [[11, 2], [12, 3]],     // Green (top-right)
-      [[11, 11], [12, 12]],   // Yellow (bottom-right)
-      [[2, 11], [3, 12]]      // Blue (bottom-left)
+      [[1.8, 1.8], [3.8, 1.8], [1.8, 3.8], [3.8, 3.8]],         // Red
+      [[10.8, 1.8], [12.8, 1.8], [10.8, 3.8], [12.8, 3.8]],     // Green
+      [[10.8, 10.8], [12.8, 10.8], [10.8, 12.8], [12.8, 12.8]], // Yellow
+      [[1.8, 10.8], [3.8, 10.8], [1.8, 12.8], [3.8, 12.8]]      // Blue
     ];
 
     this.render();
@@ -70,372 +67,557 @@ window.MiniPlayGames['ludo'] = {
 
   render() {
     this.container.innerHTML = `
-      <div class="ludo-15-container">
+      <div class="ludo-wrapper" style="display:flex; flex-direction:column; align-items:center; gap:0.75rem; width:100%; max-width:660px; margin:0 auto;">
         
-        <!-- 15x15 Authentic Classic Ludo Board -->
-        <div class="ludo-15-board" id="ludo-board">
-          
-          <!-- 4 Corner Yards -->
-          <div class="ludo-15-yard yard-red" id="yard-0">
-            <div class="yard-inner-card">
-              <div class="yard-socket" id="yard-socket-0-0"></div>
-              <div class="yard-socket" id="yard-socket-0-1"></div>
+        <!-- Controls & 3D Dice Bar -->
+        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; padding:0.5rem 1rem; background:var(--bg-surface); border-radius:12px; border:1px solid var(--border-color); box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+          <div id="ludo-turn-indicator" style="display:flex; align-items:center; gap:0.5rem; font-weight:700; font-size:1rem;">
+            <span id="ludo-turn-dot" style="width:14px; height:14px; border-radius:50%; background:#ef4444; display:inline-block; box-shadow:0 0 10px #ef4444;"></span>
+            <span id="ludo-turn-text">Red's Turn</span>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:1rem;">
+            <div id="ludo-dice-box" role="button" tabindex="0" style="width:56px; height:56px; background:#ffffff; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.8rem; font-weight:900; color:#0f172a; box-shadow:0 6px 16px rgba(0,0,0,0.4), inset 0 -3px 0 #cbd5e1; cursor:pointer; user-select:none; transition:transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);">
+              🎲
             </div>
+            <button id="btn-roll-dice" class="btn-cta-primary" style="padding:0.5rem 1.25rem; font-size:0.95rem; font-weight:700; border-radius:8px;">
+              ROLL DICE
+            </button>
           </div>
-
-          <div class="ludo-15-yard yard-green" id="yard-1">
-            <div class="yard-inner-card">
-              <div class="yard-socket" id="yard-socket-1-0"></div>
-              <div class="yard-socket" id="yard-socket-1-1"></div>
-            </div>
-          </div>
-
-          <div class="ludo-15-yard yard-yellow" id="yard-2">
-            <div class="yard-inner-card">
-              <div class="yard-socket" id="yard-socket-2-0"></div>
-              <div class="yard-socket" id="yard-socket-2-1"></div>
-            </div>
-          </div>
-
-          <div class="ludo-15-yard yard-blue" id="yard-3">
-            <div class="yard-inner-card">
-              <div class="yard-socket" id="yard-socket-3-0"></div>
-              <div class="yard-socket" id="yard-socket-3-1"></div>
-            </div>
-          </div>
-
-          <!-- Central Victory Home Amphitheater -->
-          <div class="ludo-15-center" id="ludo-center-home">
-            <div class="center-triangle-red"></div>
-            <div class="center-triangle-green"></div>
-            <div class="center-triangle-yellow"></div>
-            <div class="center-triangle-blue"></div>
-            <div class="center-home-trophy" id="center-trophy">🏆</div>
-          </div>
-
-          <!-- Dynamic Cells Container -->
-          <div id="ludo-cells-container" style="display:contents;"></div>
-
-          <!-- Active Pawns Container -->
-          <div id="ludo-pawns-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:20;"></div>
         </div>
 
-        <!-- 3D Interactive Tumbling Dice Controls -->
-        <div style="display:flex; align-items:center; gap:1.5rem; justify-content:center; flex-wrap:wrap;">
-          
-          <div class="dice-container-3d" id="dice-container-wrap">
-            <div class="dice-cube" id="ludo-dice-cube" title="Roll 3D Dice">
-              <div class="dice-face dice-face-1">
-                <div></div><div></div><div></div>
-                <div></div><div class="dice-pip" style="background:#dc2626;"></div><div></div>
-                <div></div><div></div><div></div>
-              </div>
-              <div class="dice-face dice-face-6">
-                <div class="dice-pip"></div><div></div><div class="dice-pip"></div>
-                <div class="dice-pip"></div><div></div><div class="dice-pip"></div>
-                <div class="dice-pip"></div><div></div><div class="dice-pip"></div>
-              </div>
-              <div class="dice-face dice-face-2">
-                <div class="dice-pip"></div><div></div><div></div>
-                <div></div><div></div><div></div>
-                <div></div><div></div><div class="dice-pip"></div>
-              </div>
-              <div class="dice-face dice-face-5">
-                <div class="dice-pip"></div><div></div><div class="dice-pip"></div>
-                <div></div><div class="dice-pip"></div><div></div>
-                <div class="dice-pip"></div><div></div><div class="dice-pip"></div>
-              </div>
-              <div class="dice-face dice-face-3">
-                <div class="dice-pip"></div><div></div><div></div>
-                <div></div><div class="dice-pip"></div><div></div>
-                <div></div><div></div><div class="dice-pip"></div>
-              </div>
-              <div class="dice-face dice-face-4">
-                <div class="dice-pip"></div><div></div><div class="dice-pip"></div>
-                <div></div><div></div><div></div>
-                <div class="dice-pip"></div><div></div><div class="dice-pip"></div>
-              </div>
-            </div>
-          </div>
-
-          <div style="display:flex; flex-direction:column; align-items:flex-start; gap:0.25rem;">
-            <div id="ludo-turn-status" style="font-weight:800; font-size:1.15rem; color:#38bdf8;">
-              Waiting for turn...
-            </div>
-            <div id="ludo-dice-hint" style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">
-              Tap 3D dice to roll!
-            </div>
-          </div>
-
+        <!-- HTML5 Canvas Board (Zero SVG) -->
+        <div style="position:relative; width:100%; aspect-ratio:1/1; background:#0f172a; border-radius:16px; overflow:hidden; box-shadow:0 12px 36px rgba(0,0,0,0.5), 0 0 0 4px rgba(255,255,255,0.06);">
+          <canvas id="ludo-canvas" width="900" height="900" style="width:100%; height:100%; display:block; cursor:pointer;"></canvas>
         </div>
 
+        <div style="font-size:0.82rem; color:var(--text-muted); text-align:center;">
+          Roll <strong>6</strong> to summon a character from base! Tap your glowing character to hop.
+        </div>
       </div>
     `;
 
-    this.buildGridCells();
-    this.wireDiceEvents();
+    this.canvas = this.container.querySelector('#ludo-canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.diceBtn = this.container.querySelector('#btn-roll-dice');
+    this.diceBox = this.container.querySelector('#ludo-dice-box');
+
+    const handleRoll = () => {
+      if (this.isRolling) return;
+      if (this.gameState && this.gameState.currentTurn !== this.myPlayerIndex) {
+        this.app.toast('Wait for your turn!');
+        return;
+      }
+      if (this.gameState && this.gameState.hasRolled) {
+        this.app.toast('Pick a movable character!');
+        return;
+      }
+
+      this.isRolling = true;
+      this.animateDiceRoll();
+      this.app.playSfx('dice');
+
+      this.socket.emit('player_action', { type: 'roll_dice' }, (res) => {
+        this.isRolling = false;
+        if (res && !res.valid && res.error) {
+          this.app.toast(res.error);
+        }
+      });
+    };
+
+    this.diceBtn.addEventListener('click', handleRoll);
+    this.diceBox.addEventListener('click', handleRoll);
+
+    // Canvas click to select token
+    this.canvas.addEventListener('click', (e) => {
+      if (!this.gameState || this.gameState.currentTurn !== this.myPlayerIndex || !this.gameState.hasRolled) return;
+      const rect = this.canvas.getBoundingClientRect();
+      const clickX = (e.clientX - rect.left) * (this.canvas.width / rect.width);
+      const clickY = (e.clientY - rect.top) * (this.canvas.height / rect.height);
+
+      const cellSize = this.canvas.width / 15;
+      const myPlayer = this.gameState.players[this.myPlayerIndex];
+      if (!myPlayer) return;
+
+      // Find closest movable token
+      for (const tokId of this.gameState.movableTokens) {
+        const tok = myPlayer.tokens[tokId];
+        const coord = this.getTokenCanvasCoord(this.myPlayerIndex, tok);
+        const tokX = (coord[0] + 0.5) * cellSize;
+        const tokY = (coord[1] + 0.5) * cellSize;
+        const dist = Math.hypot(clickX - tokX, clickY - tokY);
+
+        if (dist < cellSize * 0.9) {
+          // Select this token!
+          this.app.playSfx('click');
+          this.socket.emit('player_action', { type: 'move_token', tokenId: tokId }, (res) => {
+            if (res && !res.valid && res.error) {
+              this.app.toast(res.error);
+            }
+          });
+          break;
+        }
+      }
+    });
 
     if (this.roomInfo.gameState) {
       this.onStateUpdate(this.roomInfo.gameState, []);
     }
+
+    this.startLoop();
   },
 
-  buildGridCells() {
-    const container = this.container.querySelector('#ludo-cells-container');
-    if (!container) return;
+  animateDiceRoll() {
+    this.diceRolling = true;
+    let rolls = 0;
+    const interval = setInterval(() => {
+      this.diceDisplayValue = Math.floor(Math.random() * 6) + 1;
+      this.diceBox.textContent = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][this.diceDisplayValue - 1];
+      this.diceBox.style.transform = `rotate(${(Math.random() - 0.5) * 40}deg) scale(1.15)`;
+      rolls++;
+      if (rolls > 8) {
+        clearInterval(interval);
+        this.diceRolling = false;
+        this.diceBox.style.transform = 'rotate(0deg) scale(1)';
+        if (this.gameState && this.gameState.diceValue) {
+          this.diceBox.textContent = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][this.gameState.diceValue - 1];
+        }
+      }
+    }, 45);
+  },
 
-    // Helper to check if (c, r) belongs to a yard (0..5, 0..5), (9..14, 0..5), etc.
-    const isYardOrCenter = (c, r) => {
-      if (c <= 5 && r <= 5) return true; // Red Yard
-      if (c >= 9 && r <= 5) return true; // Green Yard
-      if (c >= 9 && r >= 9) return true; // Yellow Yard
-      if (c <= 5 && r >= 9) return true; // Blue Yard
-      if (c >= 6 && c <= 8 && r >= 6 && r <= 8) return true; // Center
-      return false;
+  getTokenCanvasCoord(pIdx, tok) {
+    if (tok.status === 'base') {
+      return this.BASE_SOCKET_COORDS[pIdx][tok.id] || [2, 2];
+    }
+    if (tok.status === 'track') {
+      const globalIdx = (this.START_TRACK_INDICES[pIdx] + tok.step) % 52;
+      return this.TRACK_COORDS[globalIdx];
+    }
+    if (tok.status === 'home_stretch') {
+      const stretchIdx = tok.step - 51;
+      return this.HOME_STRETCHES[pIdx][Math.min(5, Math.max(0, stretchIdx))];
+    }
+    // 'home'
+    return [7, 7];
+  },
+
+  startLoop() {
+    const loop = () => {
+      this.draw();
+      this.animationFrame = requestAnimationFrame(loop);
     };
+    this.animationFrame = requestAnimationFrame(loop);
+  },
 
-    let cellsHtml = '';
+  draw() {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const W = 900;
+    const cellSize = W / 15;
+    const now = Date.now();
 
+    ctx.clearRect(0, 0, W, W);
+
+    // Board Base Background
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, W, W);
+
+    // Draw 15x15 Track Cells
     for (let r = 0; r < 15; r++) {
       for (let c = 0; c < 15; c++) {
-        if (isYardOrCenter(c, r)) continue;
+        // Skip corner yard areas (0..5, 0..5), (9..14, 0..5), (0..5, 9..14), (9..14, 9..14)
+        const inRedYard = r < 6 && c < 6;
+        const inGreenYard = r < 6 && c > 8;
+        const inBlueYard = r > 8 && c < 6;
+        const inYellowYard = r > 8 && c > 8;
+        const inCenter = r >= 6 && r <= 8 && c >= 6 && c <= 8;
 
-        let extraClass = '';
+        if (inRedYard || inGreenYard || inBlueYard || inYellowYard || inCenter) continue;
 
-        // Safe tiles
-        const trackIdx = this.TRACK_COORDS.findIndex(coord => coord[0] === c && coord[1] === r);
-        if (trackIdx !== -1 && this.SAFE_TRACK_INDICES.includes(trackIdx)) {
-          extraClass += ' tile-safe';
-        }
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(c * cellSize + 1, r * cellSize + 1, cellSize - 2, cellSize - 2);
 
-        // Start tiles
-        if (c === 1 && r === 6) extraClass += ' tile-red-start';
-        else if (c === 8 && r === 1) extraClass += ' tile-green-start';
-        else if (c === 13 && r === 8) extraClass += ' tile-yellow-start';
-        else if (c === 6 && r === 13) extraClass += ' tile-blue-start';
-
-        // Colored home stretches
-        if (r === 7 && c >= 1 && c <= 5) extraClass += ' tile-red-home';
-        else if (c === 7 && r >= 1 && r <= 5) extraClass += ' tile-green-home';
-        else if (r === 7 && c >= 9 && c <= 13) extraClass += ' tile-yellow-home';
-        else if (c === 7 && r >= 9 && r <= 13) extraClass += ' tile-blue-home';
-
-        cellsHtml += `
-          <div class="ludo-15-tile${extraClass}" style="grid-column: ${c + 1}; grid-row: ${r + 1};" data-col="${c}" data-row="${r}" id="ludo-cell-${c}-${r}">
-          </div>
-        `;
+        // Grid border
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(c * cellSize + 1, r * cellSize + 1, cellSize - 2, cellSize - 2);
       }
     }
 
-    container.innerHTML = cellsHtml;
-  },
+    // Colored Home Runways
+    // Red runway: r=7, c=1..6
+    for (let c = 1; c <= 6; c++) {
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(c * cellSize + 1, 7 * cellSize + 1, cellSize - 2, cellSize - 2);
+    }
+    // Green runway: c=7, r=1..6
+    for (let r = 1; r <= 6; r++) {
+      ctx.fillStyle = '#10b981';
+      ctx.fillRect(7 * cellSize + 1, r * cellSize + 1, cellSize - 2, cellSize - 2);
+    }
+    // Yellow runway: r=7, c=8..13
+    for (let c = 8; c <= 13; c++) {
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(c * cellSize + 1, 7 * cellSize + 1, cellSize - 2, cellSize - 2);
+    }
+    // Blue runway: c=7, r=8..13
+    for (let r = 8; r <= 13; r++) {
+      ctx.fillStyle = '#3b82f6';
+      ctx.fillRect(7 * cellSize + 1, r * cellSize + 1, cellSize - 2, cellSize - 2);
+    }
 
-  wireDiceEvents() {
-    const diceCube = this.container.querySelector('#ludo-dice-cube');
-    if (!diceCube) return;
-
-    diceCube.addEventListener('click', () => {
-      if (this.isRolling || this.isAnimatingMove) return;
-      if (!this.gameState || this.gameState.currentTurn !== this.myPlayerIndex) {
-        this.app.toast('Wait for your turn!');
-        return;
-      }
-      if (this.gameState.hasRolled) {
-        this.app.toast('Click your highlighted token to move!');
-        return;
-      }
-
-      this.triggerDiceRoll();
-      this.socket.emit('player_action', { type: 'roll_dice' });
+    // Start Tiles
+    const startTiles = [
+      { col: 1, row: 6, color: '#ef4444' },
+      { col: 8, row: 1, color: '#10b981' },
+      { col: 13, row: 8, color: '#f59e0b' },
+      { col: 6, row: 13, color: '#3b82f6' }
+    ];
+    startTiles.forEach(st => {
+      ctx.fillStyle = st.color;
+      ctx.fillRect(st.col * cellSize + 1, st.row * cellSize + 1, cellSize - 2, cellSize - 2);
     });
-  },
 
-  triggerDiceRoll() {
-    const diceCube = this.container.querySelector('#ludo-dice-cube');
-    if (!diceCube) return;
+    // 4 Corner Yards
+    const yards = [
+      { x: 0, y: 0, color: '#ef4444', dark: '#991b1b', name: 'RED YARD' },
+      { x: 9 * cellSize, y: 0, color: '#10b981', dark: '#065f46', name: 'GREEN YARD' },
+      { x: 9 * cellSize, y: 9 * cellSize, color: '#f59e0b', dark: '#92400e', name: 'YELLOW YARD' },
+      { x: 0, y: 9 * cellSize, color: '#3b82f6', dark: '#1e40af', name: 'BLUE YARD' }
+    ];
 
-    this.isRolling = true;
-    this.app.playSfx('dice');
-    diceCube.classList.remove('dice-turn-pulse');
-    diceCube.classList.add('rolling');
+    yards.forEach((yd, pIdx) => {
+      // Outer colored block
+      ctx.fillStyle = yd.color;
+      ctx.fillRect(yd.x, yd.y, 6 * cellSize, 6 * cellSize);
 
-    setTimeout(() => {
-      this.isRolling = false;
-      diceCube.classList.remove('rolling');
-      if (this.gameState && this.gameState.diceValue) {
-        this.setDiceFace(this.gameState.diceValue);
+      // Inner white card
+      const pad = cellSize * 0.75;
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(0,0,0,0.25)';
+      ctx.shadowBlur = 12;
+      ctx.fillRect(yd.x + pad, yd.y + pad, 6 * cellSize - pad * 2, 6 * cellSize - pad * 2);
+      ctx.shadowBlur = 0;
+
+      // 4 Base pedestals
+      this.BASE_SOCKET_COORDS[pIdx].forEach(coord => {
+        const cx = (coord[0] + 0.5) * cellSize;
+        const cy = (coord[1] + 0.5) * cellSize;
+        ctx.beginPath();
+        ctx.arc(cx, cy, cellSize * 0.42, 0, Math.PI * 2);
+        ctx.fillStyle = yd.color;
+        ctx.fill();
+        ctx.strokeStyle = yd.dark;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, cellSize * 0.25, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+      });
+    });
+
+    // Safe Stars ⭐ on 8 safe tiles
+    this.SAFE_TRACK_INDICES.forEach(trackIdx => {
+      const coord = this.TRACK_COORDS[trackIdx];
+      const sx = (coord[0] + 0.5) * cellSize;
+      const sy = (coord[1] + 0.5) * cellSize;
+      this.drawCanvasStar(ctx, sx, sy, 5, cellSize * 0.32, cellSize * 0.16, '#fbbf24', '#b45309');
+    });
+
+    // Center Home Finish Quadrants & Trophy
+    const mid = 7.5 * cellSize;
+    // Red triangle (left)
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath(); ctx.moveTo(6 * cellSize, 6 * cellSize); ctx.lineTo(mid, mid); ctx.lineTo(6 * cellSize, 9 * cellSize); ctx.fill();
+    // Green triangle (top)
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath(); ctx.moveTo(6 * cellSize, 6 * cellSize); ctx.lineTo(mid, mid); ctx.lineTo(9 * cellSize, 6 * cellSize); ctx.fill();
+    // Yellow triangle (right)
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath(); ctx.moveTo(9 * cellSize, 6 * cellSize); ctx.lineTo(mid, mid); ctx.lineTo(9 * cellSize, 9 * cellSize); ctx.fill();
+    // Blue triangle (bottom)
+    ctx.fillStyle = '#3b82f6';
+    ctx.beginPath(); ctx.moveTo(6 * cellSize, 9 * cellSize); ctx.lineTo(mid, mid); ctx.lineTo(9 * cellSize, 9 * cellSize); ctx.fill();
+
+    // Center Golden Trophy Crown
+    ctx.save();
+    ctx.translate(mid, mid);
+    ctx.beginPath();
+    ctx.arc(0, 0, cellSize * 0.55, 0, Math.PI * 2);
+    ctx.fillStyle = '#fbbf24';
+    ctx.shadowColor = '#f59e0b';
+    ctx.shadowBlur = 16;
+    ctx.fill();
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Crown emblem in center
+    ctx.fillStyle = '#78350f';
+    ctx.font = 'bold 24px Fredoka, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('👑', 0, 0);
+    ctx.restore();
+
+    // Draw All Player Character Pawns
+    if (this.gameState && this.gameState.players) {
+      const isMyTurn = this.gameState.currentTurn === this.myPlayerIndex;
+      const movableTokens = this.gameState.movableTokens || [];
+
+      this.gameState.players.forEach((player, pIdx) => {
+        player.tokens.forEach(tok => {
+          const coord = this.getTokenCanvasCoord(pIdx, tok);
+          const cx = (coord[0] + 0.5) * cellSize;
+          const cy = (coord[1] + 0.5) * cellSize;
+
+          const isMovable = isMyTurn && pIdx === this.myPlayerIndex && this.gameState.hasRolled && movableTokens.includes(tok.id);
+          const bob = Math.sin(now * 0.006 + tok.id * 1.5) * 3;
+
+          this.drawCharacterPawn(ctx, cx, cy + bob, pIdx, tok.id, isMovable, cellSize * 0.44);
+        });
+      });
+    }
+
+    // Draw Particles & Comic Explosions
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life--;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+      if (p.life <= 0) this.particles.splice(i, 1);
+    }
+
+    // Draw Floating Texts
+    for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+      const ft = this.floatingTexts[i];
+      ft.y -= 1.2;
+      ft.alpha -= 0.02;
+      if (ft.alpha <= 0) {
+        this.floatingTexts.splice(i, 1);
+        continue;
       }
-    }, 650);
+      ctx.save();
+      ctx.globalAlpha = ft.alpha;
+      ctx.font = '900 18px Fredoka, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 4;
+      ctx.strokeText(ft.text, ft.x, ft.y);
+      ctx.fillStyle = ft.color;
+      ctx.fillText(ft.text, ft.x, ft.y);
+      ctx.restore();
+    }
   },
 
-  setDiceFace(val) {
-    const diceCube = this.container.querySelector('#ludo-dice-cube');
-    if (!diceCube) return;
+  drawCanvasStar(ctx, cx, cy, spikes, outerRadius, innerRadius, fill, stroke) {
+    let rot = Math.PI / 2 * 3;
+    let x = cx;
+    let y = cy;
+    const step = Math.PI / spikes;
 
-    const ROTATIONS = {
-      1: 'rotateX(0deg) rotateY(0deg)',
-      2: 'rotateX(0deg) rotateY(90deg)',
-      3: 'rotateX(-90deg) rotateY(0deg)',
-      4: 'rotateX(90deg) rotateY(0deg)',
-      5: 'rotateX(0deg) rotateY(-90deg)',
-      6: 'rotateX(0deg) rotateY(180deg)'
-    };
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+      x = cx + Math.cos(rot) * outerRadius;
+      y = cy + Math.sin(rot) * outerRadius;
+      ctx.lineTo(x, y);
+      rot += step;
 
-    diceCube.style.transform = ROTATIONS[val] || 'rotateX(0deg) rotateY(0deg)';
+      x = cx + Math.cos(rot) * innerRadius;
+      y = cy + Math.sin(rot) * innerRadius;
+      ctx.lineTo(x, y);
+      rot += step;
+    }
+    ctx.lineTo(cx, cy - outerRadius);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  },
+
+  drawCharacterPawn(ctx, x, y, playerIdx, tokenId, isMovable, radius) {
+    const mainColor = this.playerColors[playerIdx];
+    const darkColor = this.playerDarkColors[playerIdx];
+    const now = Date.now();
+
+    ctx.save();
+    ctx.translate(x, y);
+
+    // Dynamic ground shadow
+    ctx.beginPath();
+    ctx.ellipse(0, radius * 0.9, radius * 0.8, radius * 0.35, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.fill();
+
+    // Movable pulsing aura & bounce arrow
+    if (isMovable) {
+      const pulse = Math.sin(now * 0.01) * 4;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 1.35 + pulse, 0, Math.PI * 2);
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 4;
+      ctx.shadowColor = '#facc15';
+      ctx.shadowBlur = 18;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Tap Me indicator
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 12px Fredoka, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('▼', 0, -radius * 1.5 - pulse);
+    }
+
+    // Pawn Body (Pedestal Base with 3D gradient)
+    const baseGrad = ctx.createLinearGradient(-radius, 0, radius, radius);
+    baseGrad.addColorStop(0, '#ffffff');
+    baseGrad.addColorStop(0.3, mainColor);
+    baseGrad.addColorStop(1, darkColor);
+
+    // Wide skirt base
+    ctx.beginPath();
+    ctx.ellipse(0, radius * 0.6, radius * 0.75, radius * 0.3, 0, 0, Math.PI * 2);
+    ctx.fillStyle = darkColor;
+    ctx.fill();
+
+    // Slender waist / torso
+    ctx.beginPath();
+    ctx.moveTo(-radius * 0.45, radius * 0.6);
+    ctx.quadraticCurveTo(-radius * 0.2, 0, -radius * 0.35, -radius * 0.1);
+    ctx.lineTo(radius * 0.35, -radius * 0.1);
+    ctx.quadraticCurveTo(radius * 0.2, 0, radius * 0.45, radius * 0.6);
+    ctx.closePath();
+    ctx.fillStyle = baseGrad;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Collar ring
+    ctx.beginPath();
+    ctx.ellipse(0, -radius * 0.1, radius * 0.42, radius * 0.14, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#fbbf24';
+    ctx.fill();
+
+    // Character Head (Sphere)
+    const headGrad = ctx.createRadialGradient(-radius * 0.15, -radius * 0.65, radius * 0.08, 0, -radius * 0.55, radius * 0.45);
+    headGrad.addColorStop(0, '#ffffff');
+    headGrad.addColorStop(0.4, mainColor);
+    headGrad.addColorStop(1, darkColor);
+
+    ctx.beginPath();
+    ctx.arc(0, -radius * 0.55, radius * 0.42, 0, Math.PI * 2);
+    ctx.fillStyle = headGrad;
+    ctx.fill();
+    ctx.strokeStyle = darkColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Role-specific real character features:
+    if (playerIdx === 0) {
+      // Knight (Visor & plume)
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillRect(-radius * 0.28, -radius * 0.62, radius * 0.56, 4);
+      // Red plume feather
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath();
+      ctx.arc(0, -radius * 1.05, 5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (playerIdx === 1) {
+      // Ranger (Green Archer hood & eyes)
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-radius * 0.2, -radius * 0.6, 3, 3);
+      ctx.fillRect(radius * 0.1, -radius * 0.6, 3, 3);
+    } else if (playerIdx === 2) {
+      // Monarch (Golden Crown)
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.moveTo(-radius * 0.3, -radius * 0.85);
+      ctx.lineTo(-radius * 0.15, -radius * 1.05);
+      ctx.lineTo(0, -radius * 0.9);
+      ctx.lineTo(radius * 0.15, -radius * 1.05);
+      ctx.lineTo(radius * 0.3, -radius * 0.85);
+      ctx.closePath();
+      ctx.fill();
+    } else if (playerIdx === 3) {
+      // Sorcerer (Pointed magic hat)
+      ctx.fillStyle = '#1e3a8a';
+      ctx.beginPath();
+      ctx.moveTo(-radius * 0.35, -radius * 0.8);
+      ctx.lineTo(0, -radius * 1.25);
+      ctx.lineTo(radius * 0.35, -radius * 0.8);
+      ctx.closePath();
+      ctx.fill();
+      // Glowing star on tip
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath(); ctx.arc(0, -radius * 1.25, 3, 0, Math.PI * 2); ctx.fill();
+    }
+
+    ctx.restore();
   },
 
   onStateUpdate(state, events = []) {
     this.gameState = state;
 
-    // Handle events (dice roll, captures, home celebrations)
+    // Update Turn Indicator & Dice Box
+    const turnDot = this.container.querySelector('#ludo-turn-dot');
+    const turnText = this.container.querySelector('#ludo-turn-text');
+    if (turnDot && turnText) {
+      const pColor = this.playerColors[state.currentTurn] || '#ef4444';
+      const pName = this.roomInfo.players[state.currentTurn]?.name || this.playerNames[state.currentTurn];
+      turnDot.style.background = pColor;
+      turnDot.style.boxShadow = `0 0 12px ${pColor}`;
+      const isMyTurn = state.currentTurn === this.myPlayerIndex;
+      turnText.textContent = isMyTurn ? `Your Turn (${pName})` : `${pName}'s Turn`;
+    }
+
+    if (this.diceBtn) {
+      const isMyTurn = state.currentTurn === this.myPlayerIndex;
+      this.diceBtn.disabled = !isMyTurn || state.hasRolled;
+      this.diceBtn.textContent = state.hasRolled ? 'CHOOSE TOKEN' : 'ROLL DICE';
+    }
+
+    if (state.diceValue && this.diceBox && !this.diceRolling) {
+      this.diceBox.textContent = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'][state.diceValue - 1];
+    }
+
+    // Process events
     events.forEach(evt => {
-      if (evt.type === 'dice_rolled') {
-        if (!this.isRolling) {
-          this.triggerDiceRoll();
-        }
+      if (evt.type === 'token_spawned' || evt.type === 'token_advanced') {
+        this.app.playSfx('hop');
       } else if (evt.type === 'token_captured') {
-        this.app.toast('⚔️ CAPTURE! Opponent token sent back to base!');
         this.app.playSfx('hit');
+        this.app.toast(`💥 Token captured! Sent back to yard.`);
+        this.floatingTexts.push({ x: 450, y: 450, text: 'CAPTURED! 💥', color: '#ef4444', alpha: 1.2 });
       } else if (evt.type === 'token_home') {
-        this.app.toast('🏁 TOKEN REACHED HOME! Extra turn awarded! 🎉');
         this.app.playSfx('fanfare');
-        this.app.triggerConfetti(60);
-      } else if (evt.type === 'bonus_roll') {
-        this.app.toast('🎲 Rolled a 6! You get another roll!');
-      } else if (evt.type === 'no_moves') {
-        this.app.toast('No moves possible with this roll.');
+        this.floatingTexts.push({ x: 450, y: 450, text: 'HOME! 🏆', color: '#fbbf24', alpha: 1.4 });
+      } else if (evt.type === 'three_sixes_penalty') {
+        this.app.toast('⚠️ Three 6s rolled in a row! Turn forfeited.');
       } else if (evt.type === 'game_over') {
         if (evt.winner === this.myPlayerIndex) {
           this.app.playSfx('win');
-          this.app.triggerConfetti(120);
+          this.app.triggerConfetti?.(140);
         } else {
           this.app.playSfx('lose');
         }
       }
     });
-
-    if (state.diceValue && !this.isRolling) {
-      this.setDiceFace(state.diceValue);
-    }
-
-    this.updateControlsUI();
-    this.renderTokens();
-  },
-
-  updateControlsUI() {
-    const state = this.gameState;
-    if (!state) return;
-
-    const diceCube = this.container.querySelector('#ludo-dice-cube');
-    const turnStatus = this.container.querySelector('#ludo-turn-status');
-    const diceHint = this.container.querySelector('#ludo-dice-hint');
-
-    const isMyTurn = state.currentTurn === this.myPlayerIndex;
-    const activePlayerName = this.roomInfo.players[state.currentTurn]?.name || `Player ${state.currentTurn + 1}`;
-
-    if (isMyTurn) {
-      if (!state.hasRolled) {
-        turnStatus.textContent = '🎲 Your turn to roll!';
-        turnStatus.style.color = '#38bdf8';
-        diceHint.textContent = 'Tap the 3D dice to roll!';
-        if (diceCube && !this.isRolling) diceCube.classList.add('dice-turn-pulse');
-      } else {
-        turnStatus.textContent = '👉 Tap a glowing token to move!';
-        turnStatus.style.color = '#10b981';
-        diceHint.textContent = `Rolled a ${state.diceValue}! Select token.`;
-        if (diceCube) diceCube.classList.remove('dice-turn-pulse');
-      }
-    } else {
-      turnStatus.textContent = `⏳ ${activePlayerName}'s turn...`;
-      turnStatus.style.color = 'var(--text-muted)';
-      diceHint.textContent = 'Waiting for opponent move...';
-      if (diceCube) diceCube.classList.remove('dice-turn-pulse');
-    }
-  },
-
-  getCoordinatesForToken(playerIndex, tok) {
-    if (tok.status === 'base') {
-      const socketCoord = this.BASE_SOCKET_COORDS[playerIndex][tok.id] || [2, 2];
-      return { col: socketCoord[0], row: socketCoord[1], type: 'yard' };
-    }
-
-    if (tok.status === 'home') {
-      // Center coordinates based on player direction
-      const centerCoords = [[6, 7], [7, 6], [8, 7], [7, 8]];
-      const c = centerCoords[playerIndex] || [7, 7];
-      return { col: c[0], row: c[1], type: 'home' };
-    }
-
-    if (tok.status === 'home_stretch') {
-      // Stretch index: tok.step ranges from 51 to 55
-      const stretchIdx = Math.max(0, Math.min(5, tok.step - 51));
-      const coord = this.HOME_STRETCHES[playerIndex][stretchIdx];
-      return { col: coord[0], row: coord[1], type: 'stretch' };
-    }
-
-    // On common track (step 0..50)
-    const globalIdx = (this.START_TRACK_INDICES[playerIndex] + tok.step) % 52;
-    const coord = this.TRACK_COORDS[globalIdx];
-    return { col: coord[0], row: coord[1], type: 'track' };
-  },
-
-  renderTokens() {
-    const overlay = this.container.querySelector('#ludo-pawns-overlay');
-    const board = this.container.querySelector('#ludo-board');
-    if (!overlay || !board || !this.gameState) return;
-
-    overlay.innerHTML = '';
-    const boardRect = board.getBoundingClientRect();
-    const cellSize = boardRect.width / 15;
-
-    this.gameState.players.forEach((player, pIdx) => {
-      player.tokens.forEach(tok => {
-        const coords = this.getCoordinatesForToken(pIdx, tok);
-        const isMovable = this.gameState.currentTurn === this.myPlayerIndex &&
-                          pIdx === this.myPlayerIndex &&
-                          this.gameState.hasRolled &&
-                          this.gameState.movableTokens.includes(tok.id);
-
-        const pawn = document.createElement('div');
-        pawn.className = `ludo-pawn ${isMovable ? 'pawn-movable' : ''}`;
-        pawn.style.background = this.playerColors[pIdx];
-        pawn.textContent = tok.status === 'home' ? '★' : `${tok.id + 1}`;
-        pawn.title = `${this.playerNames[pIdx]} Pawn ${tok.id + 1} (${tok.status})`;
-
-        // Precise positioning on 15x15 board
-        const posX = (coords.col + 0.5) * cellSize;
-        const posY = (coords.row + 0.5) * cellSize;
-
-        pawn.style.position = 'absolute';
-        pawn.style.left = `${posX}px`;
-        pawn.style.top = `${posY}px`;
-        pawn.style.transform = 'translate(-50%, -50%)';
-        pawn.style.pointerEvents = isMovable ? 'auto' : 'none';
-
-        if (isMovable) {
-          pawn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (this.isAnimatingMove) return;
-            this.animateTokenMove(pIdx, tok.id);
-            this.socket.emit('player_action', { type: 'move_token', tokenId: tok.id });
-          });
-        }
-
-        overlay.appendChild(pawn);
-      });
-    });
-  },
-
-  animateTokenMove(playerIndex, tokenId) {
-    this.isAnimatingMove = true;
-    this.app.playSfx('hop');
-
-    setTimeout(() => {
-      this.isAnimatingMove = false;
-    }, 450);
   },
 
   onDestroy() {
+    if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
     this.container.innerHTML = '';
   }
 };

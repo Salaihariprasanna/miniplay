@@ -1,6 +1,7 @@
 /**
  * Carrom Game Logic (Server)
  * 2 Players. Board size: 600x600 normalized coordinates.
+ * Authentic 19 carrom men (9 White, 9 Black, 1 Red Queen), Queen cover rule & foul penalties.
  */
 
 const BOARD_SIZE = 600;
@@ -20,20 +21,47 @@ function initCoins() {
   const center = { x: BOARD_SIZE / 2, y: BOARD_SIZE / 2 };
   const coins = [];
 
-  // Queen (Red) in center
-  coins.push({ id: 'queen', type: 'queen', x: center.x, y: center.y, vx: 0, vy: 0, pocketed: false, radius: COIN_RADIUS });
+  // 1 Queen (Red) in exact center
+  coins.push({
+    id: 'queen',
+    type: 'queen',
+    x: center.x,
+    y: center.y,
+    vx: 0,
+    vy: 0,
+    pocketed: false,
+    radius: COIN_RADIUS
+  });
 
-  // Ring of 8 coins: alternating white & black
-  const count = 8;
-  const ringRadius = 32;
-  for (let i = 0; i < count; i++) {
-    const angle = (i * 2 * Math.PI) / count;
-    const type = i % 2 === 0 ? 'white' : 'black';
+  // Inner ring: 6 coins (alternating White & Black)
+  const innerCount = 6;
+  const innerRadius = 29;
+  for (let i = 0; i < innerCount; i++) {
+    const angle = (i * 2 * Math.PI) / innerCount;
+    const type = (i % 2 === 0) ? 'white' : 'black';
     coins.push({
-      id: `coin_${i}`,
+      id: `coin_in_${i}`,
       type,
-      x: center.x + Math.cos(angle) * ringRadius,
-      y: center.y + Math.sin(angle) * ringRadius,
+      x: center.x + Math.cos(angle) * innerRadius,
+      y: center.y + Math.sin(angle) * innerRadius,
+      vx: 0,
+      vy: 0,
+      pocketed: false,
+      radius: COIN_RADIUS
+    });
+  }
+
+  // Outer ring: 12 coins (alternating White & Black)
+  const outerCount = 12;
+  const outerRadius = 57;
+  for (let i = 0; i < outerCount; i++) {
+    const angle = (i * 2 * Math.PI) / outerCount + Math.PI / 12;
+    const type = (i % 2 === 0) ? 'white' : 'black';
+    coins.push({
+      id: `coin_out_${i}`,
+      type,
+      x: center.x + Math.cos(angle) * outerRadius,
+      y: center.y + Math.sin(angle) * outerRadius,
       vx: 0,
       vy: 0,
       pocketed: false,
@@ -59,7 +87,7 @@ function initGameState() {
     currentTurn: 0, // 0 = White, 1 = Black
     scores: [0, 0],
     winner: null,
-    isSimulating: false,
+    pendingQueenCover: null, // { player: 0 | 1 }
     history: []
   };
 }
@@ -73,31 +101,31 @@ function simulatePhysics(coins, striker, shotVx, shotVy, strikerX) {
   striker.active = true;
 
   const newlyPocketed = [];
-  const maxSteps = 250;
+  const maxSteps = 300;
 
   for (let step = 0; step < maxSteps; step++) {
     const allObjects = [...coins.filter(c => !c.pocketed), striker];
 
-    // Move
+    // Move objects
     for (const obj of allObjects) {
       obj.x += obj.vx;
       obj.y += obj.vy;
       obj.vx *= FRICTION;
       obj.vy *= FRICTION;
 
-      // Stop jitter
-      if (Math.hypot(obj.vx, obj.vy) < 0.1) {
+      // Stop micro-jitter
+      if (Math.hypot(obj.vx, obj.vy) < 0.08) {
         obj.vx = 0;
         obj.vy = 0;
       }
 
-      // Wall bounce
+      // Wall bounce off wooden timber cushions
       const minB = 30 + obj.radius;
       const maxB = BOARD_SIZE - 30 - obj.radius;
-      if (obj.x < minB) { obj.x = minB; obj.vx = -obj.vx * 0.8; }
-      if (obj.x > maxB) { obj.x = maxB; obj.vx = -obj.vx * 0.8; }
-      if (obj.y < minB) { obj.y = minB; obj.vy = -obj.vy * 0.8; }
-      if (obj.y > maxB) { obj.y = maxB; obj.vy = -obj.vy * 0.8; }
+      if (obj.x < minB) { obj.x = minB; obj.vx = -obj.vx * 0.85; }
+      if (obj.x > maxB) { obj.x = maxB; obj.vx = -obj.vx * 0.85; }
+      if (obj.y < minB) { obj.y = minB; obj.vy = -obj.vy * 0.85; }
+      if (obj.y > maxB) { obj.y = maxB; obj.vy = -obj.vy * 0.85; }
 
       // Pocket check
       for (const pocket of POCKETS) {
@@ -116,7 +144,7 @@ function simulatePhysics(coins, striker, shotVx, shotVy, strikerX) {
       }
     }
 
-    // Pairwise circle collisions
+    // Pairwise elastic collisions
     for (let i = 0; i < allObjects.length; i++) {
       for (let j = i + 1; j < allObjects.length; j++) {
         const a = allObjects[i];
@@ -133,32 +161,32 @@ function simulatePhysics(coins, striker, shotVx, shotVy, strikerX) {
           const nx = dx / dist;
           const ny = dy / dist;
 
-          // Separate
+          // Positional separation
           const overlap = minDist - dist;
           a.x -= nx * overlap * 0.5;
           a.y -= ny * overlap * 0.5;
           b.x += nx * overlap * 0.5;
           b.y += ny * overlap * 0.5;
 
-          // Elastic collision
+          // Elastic collision momentum transfer
           const kx = a.vx - b.vx;
           const ky = a.vy - b.vy;
-          const p = 2 * (nx * kx + ny * ky) / 2; // Equal masses approx
+          const p = 2 * (nx * kx + ny * ky) / 2;
 
-          a.vx -= p * nx * 0.9;
-          a.vy -= p * ny * 0.9;
-          b.vx += p * nx * 0.9;
-          b.vy += p * ny * 0.9;
+          a.vx -= p * nx * 0.92;
+          a.vy -= p * ny * 0.92;
+          b.vx += p * nx * 0.92;
+          b.vy += p * ny * 0.92;
         }
       }
     }
 
-    // Check if everything has stopped
-    const moving = allObjects.some(o => Math.hypot(o.vx, o.vy) > 0.1);
+    // Stop early if all objects have come to rest
+    const moving = allObjects.some(o => Math.hypot(o.vx, o.vy) > 0.08);
     if (!moving && step > 10) break;
   }
 
-  // Reset striker
+  // Reset striker baseline position
   striker.vx = 0;
   striker.vy = 0;
   striker.x = BOARD_SIZE / 2;
@@ -178,19 +206,21 @@ function handleAction(gameState, playerIndex, action) {
       return { valid: false, error: 'Not your turn' };
     }
 
-    // Execute physics
+    // Execute physics simulation
     const pocketed = simulatePhysics(gameState.coins, gameState.striker, vx, vy, strikerX);
 
     let pottedOwn = false;
     let strikerFoul = false;
+    let queenPottedThisShot = false;
+
+    const myCoinType = playerIndex === 0 ? 'white' : 'black';
 
     for (const item of pocketed) {
       if (item.type === 'striker') {
         strikerFoul = true;
         gameState.scores[playerIndex] = Math.max(0, gameState.scores[playerIndex] - 5);
       } else if (item.type === 'queen') {
-        gameState.scores[playerIndex] += 25;
-        pottedOwn = true;
+        queenPottedThisShot = true;
       } else if (item.type === 'white') {
         gameState.scores[0] += 10;
         if (playerIndex === 0) pottedOwn = true;
@@ -200,23 +230,64 @@ function handleAction(gameState, playerIndex, action) {
       }
     }
 
+    // Queen Covering Logic
+    let queenCovered = false;
+    let queenReturned = false;
+
+    if (queenPottedThisShot) {
+      if (pottedOwn && !strikerFoul) {
+        // Immediate cover on same shot!
+        gameState.scores[playerIndex] += 25;
+        queenCovered = true;
+        gameState.pendingQueenCover = null;
+      } else {
+        // Must cover on the next shot
+        gameState.pendingQueenCover = { player: playerIndex };
+      }
+    } else if (gameState.pendingQueenCover && gameState.pendingQueenCover.player === playerIndex) {
+      if (pottedOwn && !strikerFoul) {
+        // Successfully covered Queen on following shot!
+        gameState.scores[playerIndex] += 25;
+        queenCovered = true;
+        gameState.pendingQueenCover = null;
+      } else {
+        // Failed to cover Queen! Return Queen to center
+        const queen = gameState.coins.find(c => c.type === 'queen');
+        if (queen) {
+          queen.pocketed = false;
+          queen.x = BOARD_SIZE / 2;
+          queen.y = BOARD_SIZE / 2;
+          queen.vx = 0;
+          queen.vy = 0;
+        }
+        queenReturned = true;
+        gameState.pendingQueenCover = null;
+      }
+    }
+
     const events = [{
       type: 'shot_executed',
       strikerX,
       vx,
       vy,
       pocketed,
-      playerIndex
+      playerIndex,
+      strikerFoul,
+      queenCovered,
+      queenReturned
     }];
 
-    // Check if remaining coins
-    const remaining = gameState.coins.filter(c => !c.pocketed);
-    if (remaining.length === 0) {
+    // Check if remaining target coins are cleared
+    const remainingWhite = gameState.coins.filter(c => c.type === 'white' && !c.pocketed);
+    const remainingBlack = gameState.coins.filter(c => c.type === 'black' && !c.pocketed);
+    const queenLeft = gameState.coins.some(c => c.type === 'queen' && !c.pocketed);
+
+    if (remainingWhite.length === 0 || remainingBlack.length === 0 || (!queenLeft && remainingWhite.length + remainingBlack.length === 0)) {
       gameState.winner = gameState.scores[0] > gameState.scores[1] ? 0 : (gameState.scores[1] > gameState.scores[0] ? 1 : 'draw');
       events.push({ type: 'game_over', winner: gameState.winner, scores: gameState.scores });
     } else {
-      // Bonus turn if player potted own coin and no foul
-      if (!pottedOwn || strikerFoul) {
+      // Bonus turn if player potted own coin or covered Queen and no foul
+      if ((!pottedOwn && !queenCovered) || strikerFoul) {
         gameState.currentTurn = 1 - gameState.currentTurn;
       }
       events.push({ type: 'turn_ended', nextTurn: gameState.currentTurn });

@@ -1,6 +1,6 @@
 /**
  * Ludo Game Logic (Server)
- * 2 to 4 Players. Fast mini-game rules with 2 tokens per player to ensure snappy gameplay.
+ * 2 to 4 Players. Authentic Classic Ludo Rules with 4 tokens per player.
  */
 
 // 52 common path tiles, 4 players: 0 (Red), 1 (Green), 2 (Yellow), 3 (Blue)
@@ -10,7 +10,7 @@ const SAFE_TILES = [0, 8, 13, 21, 26, 34, 39, 47];
 
 function initGameState(options = {}) {
   const playerCount = options.playerCount || 2;
-  const TOKENS_PER_PLAYER = 2; // Fast mini-game version
+  const TOKENS_PER_PLAYER = options.tokensPerPlayer || 4; // Full authentic 4 tokens
 
   const players = [];
   for (let i = 0; i < playerCount; i++) {
@@ -32,6 +32,7 @@ function initGameState(options = {}) {
     currentTurn: 0,
     diceValue: null,
     hasRolled: false,
+    consecutiveSixes: 0,
     movableTokens: [], // token IDs that can move with current dice
     winner: null,
     round: 1
@@ -71,6 +72,27 @@ function handleAction(gameState, playerIndex, action) {
     gameState.diceValue = diceValue;
     gameState.hasRolled = true;
 
+    if (diceValue === 6) {
+      gameState.consecutiveSixes = (gameState.consecutiveSixes || 0) + 1;
+    } else {
+      gameState.consecutiveSixes = 0;
+    }
+
+    // Three consecutive 6s penalty: turn is forfeited
+    if (gameState.consecutiveSixes >= 3) {
+      gameState.consecutiveSixes = 0;
+      gameState.hasRolled = false;
+      gameState.diceValue = null;
+      gameState.movableTokens = [];
+      const events = [
+        { type: 'dice_rolled', diceValue: 6, playerIndex, movable: [] },
+        { type: 'three_sixes_penalty', playerIndex }
+      ];
+      gameState.currentTurn = (gameState.currentTurn + 1) % gameState.playerCount;
+      events.push({ type: 'turn_passed', nextTurn: gameState.currentTurn });
+      return { valid: true, stateChanged: true, events };
+    }
+
     const player = gameState.players[playerIndex];
     const movable = getMovableTokens(player, diceValue);
     gameState.movableTokens = movable;
@@ -83,6 +105,7 @@ function handleAction(gameState, playerIndex, action) {
       gameState.hasRolled = false;
       gameState.diceValue = null;
       gameState.movableTokens = [];
+      gameState.consecutiveSixes = 0;
       gameState.currentTurn = (gameState.currentTurn + 1) % gameState.playerCount;
       events.push({ type: 'turn_passed', nextTurn: gameState.currentTurn });
     }
@@ -158,6 +181,7 @@ function handleAction(gameState, playerIndex, action) {
     if (bonusTurn) {
       events.push({ type: 'bonus_roll', playerIndex });
     } else {
+      gameState.consecutiveSixes = 0;
       gameState.currentTurn = (gameState.currentTurn + 1) % gameState.playerCount;
       events.push({ type: 'turn_passed', nextTurn: gameState.currentTurn });
     }
@@ -166,7 +190,7 @@ function handleAction(gameState, playerIndex, action) {
   }
 
   if (action.type === 'restart') {
-    const newState = initGameState({ playerCount: gameState.playerCount });
+    const newState = initGameState({ playerCount: gameState.playerCount, tokensPerPlayer: gameState.tokensPerPlayer });
     Object.assign(gameState, newState);
     return { valid: true, stateChanged: true, events: [{ type: 'game_restarted' }] };
   }
@@ -179,7 +203,7 @@ function getPublicState(gameState) {
 }
 
 function resetGameState(gameState) {
-  return initGameState({ playerCount: gameState.playerCount });
+  return initGameState({ playerCount: gameState.playerCount, tokensPerPlayer: gameState.tokensPerPlayer });
 }
 
 module.exports = {
